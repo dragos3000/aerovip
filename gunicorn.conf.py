@@ -18,6 +18,7 @@ loglevel = "info"
 # Process naming
 proc_name = "aerovip"
 
-# Server mechanics
-preload_app = True
+# Don't preload — let each worker create its own app so the background
+# cache thread starts after fork (threads don't survive fork).
+preload_app = False
 daemon = False

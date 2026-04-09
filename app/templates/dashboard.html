@@ -237,6 +237,10 @@ fetch('{{ url_for("main.weather") }}')
                 const catColors = {VFR:'success', MVFR:'primary', IFR:'warning', LIFR:'danger'};
                 html += `<div class="mt-2"><span class="badge bg-${catColors[m.flight_category] || 'secondary'}">${m.flight_category}</span></div>`;
             }
+            if (data.cached_at) {
+                const cachedTime = new Date(data.cached_at).toLocaleTimeString();
+                html += `<div class="text-muted text-end mt-2" style="font-size:0.7rem"><i class="bi bi-clock me-1"></i>{{ t('dash.cached_at') }}: ${cachedTime}</div>`;
+            }
         } else {
             html = '<p class="text-muted mb-0">No METAR data available.</p>';
         }

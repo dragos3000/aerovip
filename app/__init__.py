@@ -55,4 +55,8 @@ def create_app(config_class=Config):
     app.register_blueprint(scheduling.bp)
     app.register_blueprint(aircraft.bp)
 
+    # Start background weather/NOTAMs cache refresh thread
+    from app.weather_cache import start_background_refresh
+    start_background_refresh(app)
+
     return app
