@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.book_flight') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.book_flight') }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-plus-circle me-2"></i>{{ t('book.new_booking') }}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('table.aircraft') }}</label>
+                            {{ form.aircraft_id(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('table.instructor') }}</label>
+                            {{ form.instructor_id(class="form-select") }}
+                        </div>
+                        {% if current_user.role != 'student' %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('table.student') }}</label>
+                            {{ form.student_id(class="form-select") }}
+                        </div>
+                        {% else %}
+                            {{ form.student_id(type="hidden") }}
+                        {% endif %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('form.flight_type') }}</label>
+                            {{ form.flight_type(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('form.start_time') }}</label>
+                            {{ form.start_time(class="form-control") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('form.end_time') }}</label>
+                            {{ form.end_time(class="form-control") }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('form.notes') }}</label>
+                            {{ form.notes(class="form-control", rows="3") }}
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-av-primary px-4">
+                                <i class="bi bi-check-circle me-2"></i>{{ t('book.book_flight') }}
+                            </button>
+                            <a href="{{ url_for('scheduling.calendar') }}" class="btn btn-outline-secondary ms-2">{{ t('form.cancel') }}</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

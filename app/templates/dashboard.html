@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.dashboard') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.dashboard') }}{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background: rgba(13, 110, 253, 0.1); color: #0d6efd;">
+                    <i class="bi bi-calendar-check"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ todays_flights }}</div>
+                    <div class="stat-label">{{ t('dash.todays_flights') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background: rgba(25, 135, 84, 0.1); color: #198754;">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ total_students }}</div>
+                    <div class="stat-label">{{ t('dash.active_students') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background: rgba(240, 165, 0, 0.1); color: #f0a500;">
+                    <i class="bi bi-person-badge"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ total_instructors }}</div>
+                    <div class="stat-label">{{ t('dash.instructors') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background: rgba(0, 180, 216, 0.1); color: #00b4d8;">
+                    <i class="bi bi-airplane"></i>
+                </div>
+                <div>
+                    <div class="stat-value">{{ total_aircraft }}</div>
+                    <div class="stat-label">{{ t('dash.available_aircraft') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Upcoming Bookings -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-calendar3 me-2"></i>{{ t('dash.upcoming_flights') }}</span>
+                <a href="{{ url_for('scheduling.book') }}" class="btn btn-sm btn-av-primary">
+                    <i class="bi bi-plus"></i> {{ t('misc.book') }}
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>{{ t('table.date') }}</th>
+                                <th>{{ t('table.time') }}</th>
+                                <th>{{ t('table.aircraft') }}</th>
+                                <th>{{ t('table.type') }}</th>
+                                <th>{{ t('table.status') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in bookings %}
+                            <tr>
+                                <td>{{ b.start_time.strftime('%b %d, %Y') }}</td>
+                                <td>{{ b.start_time.strftime('%H:%M') }} - {{ b.end_time.strftime('%H:%M') }}</td>
+                                <td><strong>{{ b.aircraft.registration }}</strong></td>
+                                <td><span class="badge bg-primary">{{ t('flight.' + b.flight_type) }}</span></td>
+                                <td>
+                                    {% if b.status == 'confirmed' %}
+                                    <span class="badge bg-success">{{ t('status.confirmed') }}</span>
+                                    {% elif b.status == 'completed' %}
+                                    <span class="badge bg-secondary">{{ t('status.completed') }}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">{{ t('status.cancelled') }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">{{ t('dash.no_upcoming') }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weather & NOTAMs -->
+    <div class="col-lg-5">
+        <!-- Airfield Weather Station -->
+        <div class="card weather-card airfield-card mb-3">
+            <div class="card-header">
+                <i class="bi bi-thermometer-half me-2"></i>{{ t('dash.airfield_weather') }} ({{ icao_airport }})
+            </div>
+            <div class="card-body" id="airfield-weather-container">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-success" role="status"></div>
+                    <span class="ms-2 text-muted">{{ t('dash.loading_weather') }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- METAR / TAF -->
+        <div class="card weather-card mb-3">
+            <div class="card-header">
+                <i class="bi bi-cloud-sun me-2"></i>METAR / TAF - {{ icao_airport }}
+            </div>
+            <div class="card-body" id="weather-container">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2 text-muted">{{ t('dash.loading_weather') }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTAMs -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-exclamation-triangle me-2"></i>{{ t('dash.notams') }} - {{ icao_airport }}
+            </div>
+            <div class="card-body" id="notams-container">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2 text-muted">{{ t('dash.loading_notams') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Airfield Weather Station — auto-refresh every 5 minutes
+function loadAirfieldWeather() {
+    const container = document.getElementById('airfield-weather-container');
+    fetch('{{ url_for("main.airfield_weather") }}')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = `<div class="alert alert-warning small mb-0"><i class="bi bi-info-circle me-1"></i>${data.error}</div>`;
+                return;
+            }
+            const w = data.data;
+            const windDirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+            const windDir = windDirs[Math.round((w.wind_direction || 0) / 22.5) % 16];
+            const windKt = (w.wind_speed * 1.94384).toFixed(0);
+            const gustKt = (w.wind_gust * 1.94384).toFixed(0);
+
+            let html = '<div class="row g-2 text-center">';
+            html += `<div class="col-4">
+                <div class="fw-bold fs-4">${w.outdoor_temp !== undefined ? w.outdoor_temp.toFixed(1) : '?'}&deg;C</div>
+                <small class="text-muted">{{ t('dash.aw_temp') }}</small>
+            </div>`;
+            html += `<div class="col-4">
+                <div class="fw-bold fs-4">${windKt} kt</div>
+                <small class="text-muted">${windDir} (${Math.round(w.wind_direction || 0)}&deg;)</small>
+            </div>`;
+            html += `<div class="col-4">
+                <div class="fw-bold fs-4">${w.relative_pressure ? w.relative_pressure.toFixed(0) : '?'}</div>
+                <small class="text-muted">hPa (QNH)</small>
+            </div>`;
+            html += '</div>';
+
+            html += '<hr class="my-2">';
+            html += '<div class="row g-1 small">';
+            html += `<div class="col-6"><i class="bi bi-wind me-1"></i>{{ t('dash.aw_gust') }}: <strong>${gustKt} kt</strong></div>`;
+            html += `<div class="col-6"><i class="bi bi-thermometer-half me-1"></i>{{ t('dash.aw_feels') }}: <strong>${w.outdoor_feels_like !== undefined ? w.outdoor_feels_like.toFixed(1) : '?'}&deg;C</strong></div>`;
+            html += `<div class="col-6"><i class="bi bi-droplet me-1"></i>{{ t('dash.aw_humidity') }}: <strong>${w.outdoor_humidity !== undefined ? Math.round(w.outdoor_humidity) : '?'}%</strong></div>`;
+            html += `<div class="col-6"><i class="bi bi-moisture me-1"></i>{{ t('dash.aw_dewpoint') }}: <strong>${w.outdoor_dew_point !== undefined ? w.outdoor_dew_point.toFixed(1) : '?'}&deg;C</strong></div>`;
+            html += `<div class="col-6"><i class="bi bi-cloud-rain me-1"></i>{{ t('dash.aw_rain') }}: <strong>${w.daily_rain !== undefined ? w.daily_rain.toFixed(1) : '?'} mm</strong></div>`;
+            html += `<div class="col-6"><i class="bi bi-brightness-high me-1"></i>UV: <strong>${w.uv_index !== undefined ? w.uv_index : '?'}</strong></div>`;
+            html += '</div>';
+
+            if (w.last_update_time) {
+                html += `<div class="text-muted text-end mt-2" style="font-size:0.7rem"><i class="bi bi-clock me-1"></i>${w.last_update_time} <span class="badge bg-success bg-opacity-25 text-success ms-1" style="font-size:0.6rem">LIVE</span></div>`;
+            }
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="alert alert-danger small mb-0">Failed to load airfield weather.</div>';
+        });
+}
+loadAirfieldWeather();
+setInterval(loadAirfieldWeather, 5 * 60 * 1000);
+
+// METAR / TAF
+fetch('{{ url_for("main.weather") }}')
+    .then(r => r.json())
+    .then(data => {
+        const container = document.getElementById('weather-container');
+        if (data.error) {
+            container.innerHTML = `<div class="alert alert-warning small mb-0"><i class="bi bi-info-circle me-1"></i>${data.error}</div>`;
+            return;
+        }
+        let html = '';
+        if (data.metar) {
+            const m = data.metar;
+            if (data.fallback) {
+                const sName = m.station ? m.station.name || data.station : data.station;
+                html += `<div class="alert alert-info small py-1 px-2 mb-2">
+                    <i class="bi bi-geo-alt me-1"></i>{{ t('dash.nearest_station') }}: <strong>${data.station}</strong>
+                    <span class="text-muted ms-1">${sName}</span>
+                </div>`;
+            }
+            html += `<div class="metar-raw mb-3">${m.raw_text || 'N/A'}</div>`;
+            html += '<div class="row g-2 text-center">';
+            if (m.temperature) html += `<div class="col-4"><div class="fw-bold">${m.temperature.celsius || '?'}&deg;C</div><small class="text-muted">Temp</small></div>`;
+            if (m.wind) html += `<div class="col-4"><div class="fw-bold">${m.wind.speed_kts || '?'} kt</div><small class="text-muted">Wind ${m.wind.degrees || '?'}&deg;</small></div>`;
+            if (m.barometer) html += `<div class="col-4"><div class="fw-bold">${m.barometer.hpa || '?'} hPa</div><small class="text-muted">QNH</small></div>`;
+            html += '</div>';
+            if (m.visibility) html += `<div class="mt-2 small text-muted">Visibility: ${m.visibility.meters || '?'}m</div>`;
+            if (m.flight_category) {
+                const catColors = {VFR:'success', MVFR:'primary', IFR:'warning', LIFR:'danger'};
+                html += `<div class="mt-2"><span class="badge bg-${catColors[m.flight_category] || 'secondary'}">${m.flight_category}</span></div>`;
+            }
+        } else {
+            html = '<p class="text-muted mb-0">No METAR data available.</p>';
+        }
+        container.innerHTML = html;
+    })
+    .catch(() => {
+        document.getElementById('weather-container').innerHTML = '<div class="alert alert-danger small mb-0">Failed to load weather.</div>';
+    });
+
+function loadNotams() {
+    const container = document.getElementById('notams-container');
+    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div><span class="ms-2 text-muted">{{ t("dash.loading_notams") }}</span></div>';
+
+    fetch('{{ url_for("main.notams") }}')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = `<div class="alert alert-warning small mb-2"><i class="bi bi-info-circle me-1"></i>${data.error}</div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadNotams()"><i class="bi bi-arrow-repeat me-1"></i>{{ t('dash.retry') }}</button>`;
+                return;
+            }
+            if (!data.notams || data.notams.length === 0) {
+                container.innerHTML = '<p class="text-muted mb-0 small">{{ t("dash.no_notams") }}</p>';
+                return;
+            }
+            let html = `<div class="small text-muted mb-2"><i class="bi bi-broadcast me-1"></i>${data.notams.length} NOTAM(s) &mdash; ${data.source || 'ROMATSA'}</div>`;
+            html += '<div style="max-height:400px;overflow-y:auto">';
+            data.notams.forEach(n => {
+                const linkBtn = n.link ? `<a href="${n.link}" target="_blank" rel="noopener" class="text-decoration-none ms-2" title="View on ROMATSA"><i class="bi bi-box-arrow-up-right"></i></a>` : '';
+                html += `<div class="notam-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <strong class="text-primary">${n.id || ''}</strong>${linkBtn}
+                    </div>
+                    <div class="mt-1">${n.text || n.raw || ''}</div>
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = `<div class="alert alert-danger small mb-2">Failed to load NOTAMs.</div>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadNotams()"><i class="bi bi-arrow-repeat me-1"></i>{{ t('dash.retry') }}</button>`;
+        });
+}
+loadNotams();
+</script>
+{% endblock %}

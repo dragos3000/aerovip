@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.my_bookings') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.my_bookings') }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-journal-check me-2"></i>{{ t('book.booking_history') }}</span>
+        <a href="{{ url_for('scheduling.book') }}" class="btn btn-sm btn-av-primary">
+            <i class="bi bi-plus"></i> {{ t('book.new') }}
+        </a>
+    </div>
+    <div class="card-body">
+        <table id="bookingsTable" class="table table-striped dt-responsive nowrap w-100">
+            <thead>
+                <tr>
+                    <th>{{ t('table.date') }}</th>
+                    <th>{{ t('table.time') }}</th>
+                    <th>{{ t('table.aircraft') }}</th>
+                    <th>{{ t('table.instructor') }}</th>
+                    <th>{{ t('table.student') }}</th>
+                    <th>{{ t('table.type') }}</th>
+                    <th>{{ t('table.status') }}</th>
+                    <th>{{ t('table.actions') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bookings %}
+                <tr>
+                    <td data-order="{{ b.start_time.strftime('%Y%m%d') }}">{{ b.start_time.strftime('%b %d, %Y') }}</td>
+                    <td>{{ b.start_time.strftime('%H:%M') }} - {{ b.end_time.strftime('%H:%M') }}</td>
+                    <td><strong>{{ b.aircraft.registration }}</strong> <small class="text-muted">{{ b.aircraft.model }}</small></td>
+                    <td>{{ b.instructor.full_name }}</td>
+                    <td>{{ b.student.full_name }}</td>
+                    <td><span class="badge bg-primary">{{ t('flight.' + b.flight_type) }}</span></td>
+                    <td>
+                        {% if b.status == 'confirmed' %}
+                        <span class="badge bg-success">{{ t('status.confirmed') }}</span>
+                        {% elif b.status == 'completed' %}
+                        <span class="badge bg-secondary">{{ t('status.completed') }}</span>
+                        {% else %}
+                        <span class="badge bg-danger">{{ t('status.cancelled') }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if b.status == 'confirmed' %}
+                        <form method="POST" action="{{ url_for('scheduling.cancel', booking_id=b.id) }}" class="d-inline"
+                              onsubmit="return confirm('{{ t('misc.confirm_cancel') }}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#bookingsTable').DataTable({ responsive: true, order: [[0, 'desc']], pageLength: 25 });
+});
+</script>
+{% endblock %}

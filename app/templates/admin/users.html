@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.users') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.users') }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-people me-2"></i>{{ t('admin.all_users') }}
+    </div>
+    <div class="card-body">
+        <table id="usersTable" class="table table-striped dt-responsive nowrap w-100">
+            <thead>
+                <tr>
+                    <th>{{ t('table.name') }}</th>
+                    <th>{{ t('table.email') }}</th>
+                    <th>{{ t('table.phone') }}</th>
+                    <th>{{ t('table.role') }}</th>
+                    <th>{{ t('table.status') }}</th>
+                    <th>{{ t('table.registered') }}</th>
+                    <th>{{ t('table.actions') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><strong>{{ u.full_name }}</strong></td>
+                    <td>{{ u.email }}</td>
+                    <td>{{ u.phone or '-' }}</td>
+                    <td><span class="badge badge-{{ u.role }}">{{ t('role.' + u.role) }}</span></td>
+                    <td>
+                        {% if u.is_active %}
+                        <span class="badge bg-success">{{ t('status.active') }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ t('status.inactive') }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.created_at.strftime('%b %d, %Y') }}</td>
+                    <td>
+                        <a href="{{ url_for('admin.edit_user', user_id=u.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% if u.id != current_user.id %}
+                        <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.id) }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-{{ 'danger' if u.is_active else 'success' }}">
+                                <i class="bi bi-{{ 'person-x' if u.is_active else 'person-check' }}"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#usersTable').DataTable({ responsive: true, pageLength: 25 });
+});
+</script>
+{% endblock %}

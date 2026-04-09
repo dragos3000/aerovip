@@ -1,0 +1,337 @@
+:root {
+    --av-dark: #0a1628;
+    --av-navy: #111d33;
+    --av-blue: #1a3a5c;
+    --av-accent: #00b4d8;
+    --av-gold: #f0a500;
+    --av-light: #e8edf3;
+    --av-white: #ffffff;
+}
+
+body {
+    background-color: #f0f2f5;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: linear-gradient(180deg, var(--av-dark) 0%, var(--av-navy) 100%);
+    min-height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1040;
+    transition: transform 0.3s ease;
+}
+
+.sidebar .logo-container {
+    padding: 1.5rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    text-align: center;
+}
+
+.sidebar .logo-container img {
+    max-width: 180px;
+    height: auto;
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.65);
+    padding: 0.7rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.sidebar .nav-link:hover {
+    color: var(--av-white);
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: var(--av-accent);
+}
+
+.sidebar .nav-link.active {
+    color: var(--av-white);
+    background: rgba(0, 180, 216, 0.1);
+    border-left-color: var(--av-accent);
+}
+
+.sidebar .nav-link i {
+    width: 24px;
+    margin-right: 0.5rem;
+    text-align: center;
+}
+
+.sidebar .nav-section {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 1.2rem 1.25rem 0.4rem;
+    font-weight: 600;
+}
+
+/* Main content */
+.main-content {
+    margin-left: 260px;
+    min-height: 100vh;
+}
+
+.top-navbar {
+    background: var(--av-white);
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.75rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+.content-area {
+    padding: 1.5rem;
+}
+
+/* Stats cards */
+.stat-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-card .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.stat-card .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--av-dark);
+}
+
+.stat-card .stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Weather widget */
+.weather-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.weather-card .card-header {
+    background: linear-gradient(135deg, var(--av-blue) 0%, var(--av-dark) 100%);
+    color: white;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 600;
+}
+
+.weather-card.airfield-card .card-header {
+    background: linear-gradient(135deg, #198754 0%, #0f5132 100%);
+}
+
+.metar-raw {
+    background: #1a1a2e;
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+/* NOTAMs */
+.notam-item {
+    border-left: 3px solid var(--av-gold);
+    background: #fffdf5;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.85rem;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+    background: var(--av-white);
+    border-bottom: 1px solid #eee;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 600;
+}
+
+/* Buttons */
+.btn-av-primary {
+    background: linear-gradient(135deg, var(--av-accent) 0%, #0096c7 100%);
+    color: white;
+    border: none;
+    font-weight: 500;
+}
+
+.btn-av-primary:hover {
+    background: linear-gradient(135deg, #0096c7 0%, var(--av-accent) 100%);
+    color: white;
+}
+
+/* DataTables overrides */
+.dataTables_wrapper .dataTables_filter input {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    padding: 0.4rem 0.75rem;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border-radius: 8px;
+}
+
+table.dataTable thead th {
+    background: var(--av-dark);
+    color: white;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Calendar */
+.fc .fc-toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--av-dark);
+}
+
+.fc .fc-button-primary {
+    background: var(--av-blue);
+    border-color: var(--av-blue);
+}
+
+.fc .fc-button-primary:hover {
+    background: var(--av-dark);
+}
+
+/* Auth pages */
+.auth-page {
+    background: linear-gradient(135deg, var(--av-dark) 0%, var(--av-navy) 50%, var(--av-blue) 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 420px;
+    width: 100%;
+    padding: 2.5rem;
+}
+
+.auth-card .logo-auth {
+    max-width: 200px;
+    margin-bottom: 1.5rem;
+}
+
+/* Badge styles */
+.badge-student { background: var(--av-accent); }
+.badge-instructor { background: var(--av-gold); color: #333; }
+.badge-admin { background: #dc3545; }
+
+/* Landing page */
+.hero-section {
+    background: linear-gradient(135deg, var(--av-dark) 0%, var(--av-navy) 50%, var(--av-blue) 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    color: white;
+}
+
+.hero-section .hero-logo {
+    max-width: 300px;
+    margin-bottom: 2rem;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+/* Scrollbar */
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+/* Aircraft cards */
+.aircraft-card {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease;
+}
+
+.aircraft-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.aircraft-card .aircraft-img {
+    height: 180px;
+    background: linear-gradient(135deg, var(--av-dark), var(--av-blue));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+}
+
+/* Sidebar user info */
+.sidebar-user {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: rgba(0,0,0,0.2);
+}
+
+.sidebar-user .user-name {
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.sidebar-user .user-role {
+    color: var(--av-accent);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}

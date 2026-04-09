@@ -1,0 +1,17 @@
+[Unit]
+Description=AeroVip Gunicorn Service
+After=network.target postgresql.service
+
+[Service]
+User=ubuntu01
+Group=ubuntu01
+WorkingDirectory=/home/ubuntu01/other/aerovip
+EnvironmentFile=/home/ubuntu01/other/aerovip/.env
+ExecStart=/home/ubuntu01/other/aerovip/venv/bin/gunicorn -c gunicorn.conf.py run:app
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target

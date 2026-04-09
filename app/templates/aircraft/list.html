@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.aircraft') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.fleet') }}{% endblock %}
+
+{% block content %}
+{% if current_user.role in ['admin', 'instructor'] %}
+<div class="mb-3">
+    <a href="{{ url_for('aircraft.add') }}" class="btn btn-av-primary">
+        <i class="bi bi-plus-circle me-1"></i>{{ t('aircraft.add') }}
+    </a>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <table id="aircraftTable" class="table table-striped dt-responsive nowrap w-100">
+            <thead>
+                <tr>
+                    <th>{{ t('table.registration') }}</th>
+                    <th>{{ t('table.type') }}</th>
+                    <th>{{ t('table.model') }}</th>
+                    <th>{{ t('table.seats') }}</th>
+                    <th>{{ t('table.rate') }}</th>
+                    <th>{{ t('table.status') }}</th>
+                    {% if current_user.role in ['admin', 'instructor'] %}
+                    <th>{{ t('table.actions') }}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for ac in aircraft %}
+                <tr>
+                    <td><strong>{{ ac.registration }}</strong></td>
+                    <td>{{ ac.aircraft_type }}</td>
+                    <td>{{ ac.model }}</td>
+                    <td>{{ ac.seats }}</td>
+                    <td>{{ '%.2f EUR'|format(ac.hourly_rate) if ac.hourly_rate else '-' }}</td>
+                    <td>
+                        {% if ac.is_available %}
+                        <span class="badge bg-success">{{ t('status.available') }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ t('status.unavailable') }}</span>
+                        {% endif %}
+                    </td>
+                    {% if current_user.role in ['admin', 'instructor'] %}
+                    <td>
+                        <a href="{{ url_for('aircraft.edit', aircraft_id=ac.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% if current_user.role == 'admin' %}
+                        <form method="POST" action="{{ url_for('aircraft.delete', aircraft_id=ac.id) }}" class="d-inline"
+                              onsubmit="return confirm('{{ t('misc.confirm_delete') }}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#aircraftTable').DataTable({ responsive: true });
+});
+</script>
+{% endblock %}

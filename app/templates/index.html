@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Aero Vip Academy - Flight School{% endblock %}
+
+{% block public_content %}
+<div class="hero-section">
+    <div class="container text-center">
+        <!-- Language selector on landing -->
+        <div class="position-absolute top-0 end-0 p-3">
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('main.set_language', lang='ro') }}"
+                   class="btn {{ 'btn-light' if current_lang == 'ro' else 'btn-outline-light' }}">RO</a>
+                <a href="{{ url_for('main.set_language', lang='en') }}"
+                   class="btn {{ 'btn-light' if current_lang == 'en' else 'btn-outline-light' }}">EN</a>
+            </div>
+        </div>
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Aero Vip Academy" class="hero-logo img-fluid">
+        <h1 class="display-4 fw-bold mb-3">{{ t('landing.title') }}</h1>
+        <p class="lead mb-4 opacity-75">{{ t('landing.subtitle') }}</p>
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="{{ url_for('auth.login') }}" class="btn btn-av-primary btn-lg px-4">
+                <i class="bi bi-box-arrow-in-right me-2"></i>{{ t('auth.sign_in') }}
+            </a>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-light btn-lg px-4">
+                <i class="bi bi-person-plus me-2"></i>{{ t('auth.register') }}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

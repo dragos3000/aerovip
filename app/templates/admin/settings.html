@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ t('settings.title') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('settings.title') }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear me-2"></i>{{ t('settings.api_config') }}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('settings.checkwx_key') }}</label>
+                            {{ form.checkwx_api_key(class="form-control", placeholder="xxxxxxxxxxxxxxxxxxxxxxxx", autocomplete="off") }}
+                            <div class="form-text">
+                                {{ t('settings.checkwx_help') }}
+                                <a href="https://www.checkwx.com" target="_blank" rel="noopener">checkwx.com</a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('settings.icao_airport') }}</label>
+                            {{ form.icao_airport(class="form-control", placeholder="LRBS") }}
+                            <div class="form-text">{{ t('settings.icao_help') }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('settings.airfield_url') }}</label>
+                            {{ form.airfield_weather_url(class="form-control", placeholder="https://lrpw.ro/weather/?format=json") }}
+                            <div class="form-text">{{ t('settings.airfield_url_help') }}</div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-av-primary">
+                                <i class="bi bi-check-circle me-1"></i>{{ t('form.save_changes') }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- API Status Check -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-activity me-2"></i>API Status
+            </div>
+            <div class="card-body" id="api-status">
+                <button class="btn btn-outline-primary btn-sm" id="testApiBtn">
+                    <i class="bi bi-arrow-repeat me-1"></i>Test Connection
+                </button>
+                <div id="api-result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('testApiBtn').addEventListener('click', function() {
+    const btn = this;
+    const resultDiv = document.getElementById('api-result');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing...';
+    resultDiv.innerHTML = '';
+
+    fetch('{{ url_for("main.weather") }}')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                resultDiv.innerHTML = `<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>${data.error}</div>`;
+            } else if (data.metar) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success small">
+                        <i class="bi bi-check-circle me-1"></i>
+                        <strong>Connection OK!</strong> METAR received for station.
+                        <div class="metar-raw mt-2">${data.metar.raw_text || 'N/A'}</div>
+                    </div>`;
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-warning small">Connected but no METAR data returned. Check the ICAO code.</div>';
+            }
+        })
+        .catch(() => {
+            resultDiv.innerHTML = '<div class="alert alert-danger small"><i class="bi bi-x-circle me-1"></i>Failed to reach the API.</div>';
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Test Connection';
+        });
+});
+</script>
+{% endblock %}

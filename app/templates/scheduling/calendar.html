@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.schedule') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.schedule') }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar3 me-2"></i>{{ t('book.calendar') }}</span>
+        <a href="{{ url_for('scheduling.book') }}" class="btn btn-sm btn-av-primary">
+            <i class="bi bi-plus-circle me-1"></i>{{ t('nav.book_flight') }}
+        </a>
+    </div>
+    <div class="card-body">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-airplane me-2"></i>{{ t('book.flight_details') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="eventDetails"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
+        initialView: 'timeGridWeek',
+        locale: '{{ current_lang }}',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        slotMinTime: '06:00:00',
+        slotMaxTime: '22:00:00',
+        allDaySlot: false,
+        nowIndicator: true,
+        height: 'auto',
+        events: '{{ url_for("scheduling.events") }}',
+        eventClick: function(info) {
+            const p = info.event.extendedProps;
+            document.getElementById('eventDetails').innerHTML = `
+                <table class="table table-sm mb-0">
+                    <tr><th>{{ t('table.aircraft') }}</th><td>${p.aircraft}</td></tr>
+                    <tr><th>{{ t('table.student') }}</th><td>${p.student}</td></tr>
+                    <tr><th>{{ t('table.instructor') }}</th><td>${p.instructor}</td></tr>
+                    <tr><th>{{ t('table.type') }}</th><td><span class="badge bg-primary">${p.flight_type}</span></td></tr>
+                    <tr><th>{{ t('table.time') }}</th><td>${info.event.start.toLocaleString()} - ${info.event.end.toLocaleTimeString()}</td></tr>
+                    <tr><th>{{ t('table.status') }}</th><td>${p.status}</td></tr>
+                    ${p.notes ? '<tr><th>{{ t("form.notes") }}</th><td>' + p.notes + '</td></tr>' : ''}
+                </table>`;
+            new bootstrap.Modal(document.getElementById('eventModal')).show();
+        }
+    });
+    cal.render();
+});
+</script>
+{% endblock %}
