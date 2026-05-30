@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, current_app, session, redirect, request
+from flask import Blueprint, render_template, jsonify, current_app, session, redirect, request, url_for, send_from_directory
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import requests
@@ -28,13 +28,47 @@ def set_tz(mode):
     return redirect(request.referrer or '/')
 
 
+@bp.route('/assets/<int:v>/<path:filename>')
+def asset(v, filename):
+    """Fingerprinted static assets: a new path per file version, so Cloudflare treats
+    each change as a brand-new URL (cache miss) instead of serving a stale cached copy."""
+    resp = send_from_directory(current_app.static_folder, filename)
+    resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return resp
+
+
 @bp.route('/sw.js')
 def service_worker():
-    """Serve the PWA service worker from the root so its scope covers the whole app."""
+    """Serve the PWA service worker at the app root (works under the /aerovip/ prefix)."""
     resp = current_app.send_static_file('sw.js')
     resp.headers['Content-Type'] = 'application/javascript'
     resp.headers['Service-Worker-Allowed'] = '/'
     resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@bp.route('/manifest.webmanifest')
+def manifest():
+    """Build the PWA manifest with url_for so all paths honor the /aerovip/ prefix."""
+    data = {
+        'name': 'Aero Vip Academy',
+        'short_name': 'Aero Vip',
+        'description': 'Flight school scheduling, availability, logbook and airfield info.',
+        'start_url': url_for('main.index'),
+        'scope': url_for('main.index'),
+        'display': 'standalone',
+        'background_color': '#0a1628',
+        'theme_color': '#0a1628',
+        'orientation': 'any',
+        'icons': [
+            {'src': url_for('static', filename='img/icon-192.png'),
+             'sizes': '192x192', 'type': 'image/png', 'purpose': 'any maskable'},
+            {'src': url_for('static', filename='img/icon-512.png'),
+             'sizes': '512x512', 'type': 'image/png', 'purpose': 'any maskable'},
+        ],
+    }
+    resp = jsonify(data)
+    resp.headers['Content-Type'] = 'application/manifest+json'
     return resp
 
 

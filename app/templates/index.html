@@ -16,11 +16,11 @@
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Aero Vip Academy" class="hero-logo img-fluid">
         <h1 class="display-4 fw-bold mb-3">{{ t('landing.title') }}</h1>
         <p class="lead mb-4 opacity-75">{{ t('landing.subtitle') }}</p>
-        <div class="d-flex gap-3 justify-content-center">
-            <a href="{{ url_for('auth.login') }}" class="btn btn-av-primary btn-lg px-4">
+        <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center align-items-center">
+            <a href="{{ url_for('auth.login') }}" class="btn btn-av-primary btn-lg px-4 text-nowrap">
                 <i class="bi bi-box-arrow-in-right me-2"></i>{{ t('auth.sign_in') }}
             </a>
-            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-light btn-lg px-4">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-light btn-lg px-4 text-nowrap">
                 <i class="bi bi-person-plus me-2"></i>{{ t('auth.register') }}
             </a>
         </div>

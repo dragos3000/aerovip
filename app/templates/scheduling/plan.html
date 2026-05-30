@@ -44,6 +44,21 @@
     .ac-title { font-weight: 700; }
     .legend span.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
     .avail-line { font-size: .8rem; }
+
+    /* Mobile day selector + single-day grid */
+    .plan-daybar { position: sticky; top: 54px; z-index: 6; }
+    .plan-daybar .daybtn { line-height: 1.05; padding: .25rem .15rem; }
+    .plan-daybar .daybtn small { font-size: .65rem; opacity: .75; }
+    @media (max-width: 991px) {
+        /* show only the selected day's column; keep the hour-label column */
+        #board[data-day] .dcol { display: none; }
+        #board[data-day="0"] .dcol-0, #board[data-day="1"] .dcol-1,
+        #board[data-day="2"] .dcol-2, #board[data-day="3"] .dcol-3,
+        #board[data-day="4"] .dcol-4, #board[data-day="5"] .dcol-5,
+        #board[data-day="6"] .dcol-6 { display: table-cell; }
+        .plan-grid { min-width: 0; table-layout: auto; }
+        .plan-grid td.cell { height: 36px; }
+    }
 </style>
 {% endblock %}
 
@@ -86,6 +101,17 @@
     </div>
     <div id="availSummary" class="collapse">
         <div class="card-body py-2" id="summaryBody"></div>
+    </div>
+</div>
+
+<!-- Mobile day selector (one day at a time instead of a wide scrolling grid) -->
+<div class="card mb-2 d-lg-none plan-daybar">
+    <div class="card-body p-1 d-flex gap-1">
+        {% for d in week.days %}
+        <button type="button" class="btn btn-sm btn-outline-secondary daybtn flex-fill" data-day="{{ loop.index0 }}">
+            {{ t('day.' + week.day_names[loop.index0]|lower) }}<br><small>{{ d.strftime('%-d') }}</small>
+        </button>
+        {% endfor %}
     </div>
 </div>
 
@@ -247,11 +273,11 @@ function renderAircraft(ac) {
     const table = document.createElement('table');
     table.className = 'plan-grid';
     let html = '<thead><tr><th></th>';
-    DAYS.forEach(d => html += `<th>${d.label}</th>`);
+    DAYS.forEach((d, di) => html += `<th class="dcol dcol-${di}">${d.label}</th>`);
     html += '</tr></thead><tbody>';
     HOURS.forEach(h => {
         html += `<tr><td class="hour-label">${dispHourStr(h)}</td>`;
-        DAYS.forEach(d => {
+        DAYS.forEach((d, di) => {
             const bk = bookingAtCell(ac, d.date, h);
             if (bk) {
                 const isStart = parseInt(bk.start.split(':')[0], 10) === h;
@@ -261,9 +287,9 @@ function renderAircraft(ac) {
                     ? `<div class="chip">${conf ? '<i class="bi bi-exclamation-triangle"></i> ' : ''}${bk.student}</div>`
                       + `<div class="chip sub">${bk.hour_type} · ${instrName[bk.instructor_id] || bk.instructor || ''}</div>`
                     : '';
-                html += `<td class="cell booked ${conf ? 'conflict' : ''}" draggable="true" style="background:${color}" data-booking='${JSON.stringify(bk)}'>${label}</td>`;
+                html += `<td class="cell booked dcol dcol-${di} ${conf ? 'conflict' : ''}" draggable="true" style="background:${color}" data-booking='${JSON.stringify(bk)}'>${label}</td>`;
             } else {
-                html += `<td class="cell free" data-date="${d.date}" data-hour="${h}"></td>`;
+                html += `<td class="cell free dcol dcol-${di}" data-date="${d.date}" data-hour="${h}"></td>`;
             }
         });
         html += '</tr>';
@@ -291,6 +317,22 @@ function renderAircraft(ac) {
     board.appendChild(card);
 }
 AIRCRAFT.forEach(renderAircraft);
+
+// ---- mobile day selector: show one day at a time ----
+(function () {
+    const board = document.getElementById('board');
+    const btns = document.querySelectorAll('.daybtn');
+    if (!btns.length) return;
+    function setDay(i) {
+        board.dataset.day = i;
+        btns.forEach(b => b.classList.toggle('active', parseInt(b.dataset.day, 10) === i));
+    }
+    btns.forEach(b => b.addEventListener('click', () => setDay(parseInt(b.dataset.day, 10))));
+    const t = new Date();
+    const todayStr = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    let def = DAYS.findIndex(d => d.date === todayStr);
+    setDay(def < 0 ? 0 : def);
+})();
 
 // ---- availability overlay: ALL students at once (green = 1, red = 2+ overlap); a chip filters to one ----
 let selectedStudent = null;

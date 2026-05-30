@@ -1,16 +1,19 @@
 /* Aero Vip Academy service worker.
- * Deliberately conservative: navigations are ALWAYS network-first (never serve
- * stale HTML), only same-origin static assets are cached. This makes the app
- * installable without the stale-page problems a careless SW would cause.
+ * Prefix-aware (the app is served under /aerovip/): all paths are resolved
+ * relative to the worker's own location. Navigations are ALWAYS network-first
+ * (never stale HTML); only same-origin static assets are cached.
  */
-const CACHE = 'aerovip-v1';
+const CACHE = 'aerovip-v3';
+const SCOPE_URL = new URL('./', self.location);                 // e.g. https://host/aerovip/
+const STATIC_PREFIX = new URL('static/', SCOPE_URL).pathname;   // e.g. /aerovip/static/
+const OFFLINE = new URL('static/offline.html', SCOPE_URL).href;
 const PRECACHE = [
-  '/static/css/style.css',
-  '/static/img/logo.png',
-  '/static/img/icon-192.png',
-  '/static/img/icon-512.png',
-  '/static/offline.html',
-];
+  'static/css/style.css',
+  'static/img/logo.png',
+  'static/img/icon-192.png',
+  'static/img/icon-512.png',
+  'static/offline.html',
+].map((p) => new URL(p, SCOPE_URL).href);
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -26,20 +29,16 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') return;                       // never touch POST/forms
+  if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;        // skip CDNs, Google Maps, weather API
+  if (url.origin !== self.location.origin) return;             // skip CDNs, Maps, weather API
 
-  // HTML navigations: network-first, fall back to offline page when offline.
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).catch(() => caches.match('/static/offline.html'))
-    );
+  if (req.mode === 'navigate') {                               // pages: network-first
+    event.respondWith(fetch(req).catch(() => caches.match(OFFLINE)));
     return;
   }
 
-  // Static assets: cache-first, then network (and cache the result).
-  if (url.pathname.startsWith('/static/')) {
+  if (url.pathname.startsWith(STATIC_PREFIX)) {                // static: cache-first
     event.respondWith(
       caches.match(req).then((cached) => cached || fetch(req).then((resp) => {
         const copy = resp.clone();

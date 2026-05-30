@@ -9,6 +9,10 @@
     --av-radius: 12px;   /* single source of truth for card corners */
 }
 
+html, body {
+    overscroll-behavior: none;   /* stop the iOS rubber-band / overscroll bounce */
+}
+
 body {
     background-color: #f0f2f5;
     font-family: 'Inter', 'Segoe UI', sans-serif;
@@ -19,12 +23,15 @@ body {
 .sidebar {
     width: 260px;
     background: linear-gradient(180deg, var(--av-dark) 0%, var(--av-navy) 100%);
-    min-height: 100vh;
+    height: 100vh;
+    overflow-y: auto;        /* scroll if the menu is taller than the screen */
     position: fixed;
     left: 0;
     top: 0;
     z-index: 1040;
     transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar .logo-container {
@@ -173,12 +180,7 @@ body {
     border: none;
     border-radius: var(--av-radius);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-/* Round the inner corners for cards whose body sits flush (tables/maps/images) */
-.card > .card-body.p-0:last-child,
-.card > .card-body.p-0:last-child > .table-responsive {
-    border-radius: 0 0 var(--av-radius) var(--av-radius);
-    overflow: hidden;
+    overflow: hidden;   /* consistent rounded corners — clips flush tables, maps, images */
 }
 
 .card-header {
@@ -356,9 +358,6 @@ table.dataTable thead th {
 .sidebar-user {
     padding: 1rem 1.25rem;
     border-top: 1px solid rgba(255,255,255,0.08);
-    position: absolute;
-    bottom: 0;
-    width: 100%;
     background: rgba(0,0,0,0.2);
 }
 

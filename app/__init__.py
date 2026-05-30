@@ -1,4 +1,5 @@
-from flask import Flask, session, request
+import os
+from flask import Flask, session, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -35,6 +36,30 @@ def create_app(config_class=Config):
             total = 0
         return f'{total // 60}:{total % 60:02d}'
     app.jinja_env.filters['hm'] = format_hm
+
+    # Cache-busting: append the file's mtime to static URLs so browsers (and the
+    # service worker) fetch fresh CSS/JS whenever a file changes, despite the
+    # long/immutable cache headers on /static/.
+    @app.url_defaults
+    def _static_cache_bust(endpoint, values):
+        if endpoint == 'static' and 'filename' in values:
+            try:
+                fp = os.path.join(app.static_folder, values['filename'])
+                values['v'] = int(os.path.getmtime(fp))
+            except OSError:
+                pass
+
+    # asset_url(): fingerprinted path (/aerovip/assets/<mtime>/...) that survives the
+    # Cloudflare edge cache (which ignores query strings).
+    @app.context_processor
+    def inject_asset_url():
+        def asset_url(filename):
+            try:
+                v = int(os.path.getmtime(os.path.join(app.static_folder, filename)))
+            except OSError:
+                v = 0
+            return url_for('main.asset', v=v, filename=filename)
+        return dict(asset_url=asset_url)
 
     from app.models import User
     from app.translations import get_translation

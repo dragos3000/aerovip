@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon-180.png') }}">
     <!-- PWA: installable app -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ url_for('main.manifest') }}">
     <meta name="theme-color" content="#0a1628">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,7 +21,7 @@
         // Register our own service worker (network-first for pages, so no stale HTML).
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/sw.js').catch(function (e) {
+                navigator.serviceWorker.register('{{ url_for("main.service_worker") }}').catch(function (e) {
                     console.warn('Service worker registration failed', e);
                 });
             });
@@ -37,15 +37,18 @@
     <!-- Inter font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="{{ asset_url('css/style.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     {% if current_user.is_authenticated %}
     <!-- Sidebar -->
     <nav class="sidebar d-flex flex-column" id="sidebar">
-        <div class="logo-container">
+        <div class="logo-container position-relative">
             <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Aero Vip Academy" class="img-fluid">
+            <button type="button" class="btn btn-link text-white d-lg-none position-absolute top-0 end-0 mt-2 me-2 p-1" id="sidebarClose" aria-label="Close menu">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </div>
 
         <div class="nav-section">{{ t('nav.main') }}</div>
@@ -141,10 +144,11 @@
     <div class="main-content">
         <nav class="top-navbar d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
-                <button class="btn btn-link d-lg-none text-dark me-2" id="sidebarToggle">
-                    <i class="bi bi-list fs-4"></i>
+                <button class="btn btn-link d-lg-none text-dark me-2 p-0" id="sidebarToggle">
+                    <i class="bi bi-list fs-3"></i>
                 </button>
-                <h5 class="mb-0 fw-bold">{% block page_title %}{{ t('nav.dashboard') }}{% endblock %}</h5>
+                <img src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="Aero Vip" class="d-lg-none me-2" style="height:30px">
+                <h5 class="mb-0 fw-bold d-none d-lg-block">{% block page_title %}{{ t('nav.dashboard') }}{% endblock %}</h5>
             </div>
             <div class="d-none d-lg-flex align-items-center gap-3">
                 <!-- Time zone selector -->
@@ -214,6 +218,12 @@
             }
             toggle.addEventListener('click', function () {
                 sidebar.classList.contains('show') ? close() : open();
+            });
+            var closeBtn = document.getElementById('sidebarClose');
+            if (closeBtn) closeBtn.addEventListener('click', close);
+            // close on Escape
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') close();
             });
             // close when a nav link is tapped
             sidebar.querySelectorAll('a.nav-link').forEach(function (a) {
