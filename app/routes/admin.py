@@ -86,9 +86,10 @@ def settings():
         Setting.set('airfield_weather_url', form.airfield_weather_url.data.strip(),
                      'Airfield weather station JSON URL')
         save_airfield_info(request.form)
-        # Apply the new weather config immediately instead of waiting for the hourly refresh.
-        from app.weather_cache import refresh_now
-        refresh_now()
+        # Apply the new weather config soon, in the background (don't block the save on a slow API).
+        from flask import current_app
+        from app.weather_cache import refresh_now_async
+        refresh_now_async(current_app._get_current_object())
         flash('Settings saved successfully.', 'success')
         return redirect(url_for('admin.settings'))
 

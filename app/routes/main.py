@@ -5,6 +5,7 @@ import requests
 from app.models import Booking, User, Aircraft, Setting
 from app.weather_cache import get_cached_weather, get_cached_notams
 from app.airfield import get_airfield_info, get_airfield_map_url
+from app.sun import sun_times
 
 bp = Blueprint('main', __name__)
 
@@ -120,7 +121,8 @@ def dashboard():
                            total_instructors=total_instructors,
                            icao_airport=icao,
                            airfield_info=get_airfield_info(),
-                           airfield_map_url=get_airfield_map_url(session.get('lang', 'ro')))
+                           airfield_map_url=get_airfield_map_url(session.get('lang', 'ro')),
+                           suntimes=sun_times())
 
 
 @bp.route('/api/airfield-weather')

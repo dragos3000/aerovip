@@ -20,12 +20,27 @@
     .plan-grid td.cell.avail-one:hover { background: #c3ecce; }
     .plan-grid td.cell.avail-multi { background: #f7c9ce; }
     .plan-grid td.cell.avail-multi:hover { background: #f2b2b9; }
+    /* booked cell rings: green = flight within the student's availability, amber = outside it */
+    .plan-grid td.cell.booked.avail-ring { box-shadow: inset 0 0 0 3px #14e06a; }
+    .plan-grid td.cell.booked.avail-ring-bad { box-shadow: inset 0 0 0 3px #ffc107; }
+    /* when a student is selected, other students' flights fade out */
+    .plan-grid td.cell.booked.other-faded { opacity: .12; }
+    #board.hide-avail td.cell.booked.other-faded { opacity: 1 !important; }
     .plan-grid td.cell .avx { display: block; font-size: .6rem; line-height: 1.12; padding: 1px 2px; white-space: normal; word-break: break-word; pointer-events: none; }
     .plan-grid td.cell .avx + .avx { border-top: 1px solid rgba(0,0,0,.12); }
     .plan-grid td.cell .avx .nm { display: block; font-weight: 600; color: #1c2733; }
     .plan-grid td.cell .avx .rq { display: block; color: #5a6b7b; font-size: .92em; }
     /* sticky student picker bar */
-    .plan-toolbar { position: sticky; top: 54px; z-index: 6; }
+    .plan-toolbar { position: sticky; top: var(--nav-h, 52px); z-index: 6; background: #fff; }
+    /* hide the availability overlay (to check the matching against bookings only) */
+    #board.hide-avail td.cell.free.avail-one,
+    #board.hide-avail td.cell.free.avail-multi,
+    #board.hide-avail td.cell.free.avail-hl,
+    #board.hide-avail td.cell.free.avail-dim { background: #fff !important; box-shadow: none !important; }
+    #board.hide-avail td.cell.free .avx { display: none !important; }
+    /* booked cells keep their flight colour — only drop the availability ring */
+    #board.hide-avail td.cell.booked.avail-ring,
+    #board.hide-avail td.cell.booked.avail-ring-bad { box-shadow: none !important; }
     .stu-chip { font-size: .78rem; padding: .2rem .55rem; border: 1px solid #ced4da; border-radius: 999px;
                 background: #fff; cursor: pointer; white-space: nowrap; line-height: 1.2; }
     .stu-chip:hover { border-color: #0d6efd; }
@@ -46,7 +61,7 @@
     .avail-line { font-size: .8rem; }
 
     /* Mobile day selector + single-day grid */
-    .plan-daybar { position: sticky; top: 54px; z-index: 6; }
+    .plan-daybar { position: sticky; top: var(--nav-h, 52px); z-index: 6; }
     .plan-daybar .daybtn { line-height: 1.05; padding: .25rem .15rem; }
     .plan-daybar .daybtn small { font-size: .65rem; opacity: .75; }
     @media (max-width: 991px) {
@@ -79,10 +94,56 @@
             <span class="sw" style="background:#dc3545;margin-left:8px"></span>{{ t('sched.conflict') }}
         </div>
         <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-av-primary" data-bs-toggle="modal" data-bs-target="#autoModal">
+                <i class="bi bi-magic me-1"></i>{{ t('sched.auto_schedule') }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="resetBtn">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>{{ t('sched.reset_planning') }}
+            </button>
             <a href="{{ url_for('scheduling.plan', week=week.prev_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
             <a href="{{ url_for('scheduling.plan', week=week.next_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
         </div>
     </div>
+</div>
+
+<!-- Auto-schedule modal -->
+<div class="modal fade" id="autoModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-magic me-2"></i>{{ t('sched.auto_schedule') }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-check form-switch mb-1">
+          <input class="form-check-input" type="checkbox" id="optSplitAll">
+          <label class="form-check-label fw-semibold" for="optSplitAll">{{ t('sched.opt_split_all') }}</label>
+        </div>
+        <div id="splitList" class="ms-3 mb-2 border rounded p-2" style="max-height:160px;overflow:auto"></div>
+        <div class="form-text mb-2">{{ t('sched.opt_split_hint') }}</div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="optPlanes" checked>
+          <label class="form-check-label" for="optPlanes">{{ t('sched.opt_planes') }}</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="optWeek" checked>
+          <label class="form-check-label" for="optWeek">{{ t('sched.opt_week') }}</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="optClear">
+          <label class="form-check-label" for="optClear">{{ t('sched.opt_clear') }}</label>
+        </div>
+        <p class="text-muted small mb-0">{{ t('sched.auto_hint') }}</p>
+        <div id="autoResult" class="d-none mt-2"></div>
+        <div id="autoMsg" class="small mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t('form.cancel') }}</button>
+        <button type="button" class="btn btn-av-primary btn-sm" id="autoGenerate"><i class="bi bi-magic me-1"></i>{{ t('sched.auto_generate') }}</button>
+        <button type="button" class="btn btn-success btn-sm d-none" id="autoApply"><i class="bi bi-check2 me-1"></i>{{ t('sched.auto_apply') }}</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Sticky student picker: click a student to paint their availability onto every grid -->
@@ -90,6 +151,10 @@
     <div class="card-body py-2 d-flex align-items-center flex-wrap gap-2">
         <span class="text-muted small me-1"><i class="bi bi-eye me-1"></i>{{ t('sched.highlight_avail') }}:</span>
         <div id="stuChips" class="d-flex flex-wrap gap-2"></div>
+        <div class="form-check form-switch ms-auto mb-0" id="availToggleWrap">
+            <input class="form-check-input" type="checkbox" id="toggleAvail">
+            <label class="form-check-label small" for="toggleAvail">{{ t('sched.show_avail') }}</label>
+        </div>
     </div>
 </div>
 
@@ -184,6 +249,13 @@
 {% block extra_js %}
 <script>
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+// keep the sticky toolbar flush under the navbar (no gap where content peeks through)
+(function () {
+    const nav = document.querySelector('.top-navbar');
+    function apply() { if (nav) document.documentElement.style.setProperty('--nav-h', (nav.offsetHeight - 1) + 'px'); }
+    apply();
+    window.addEventListener('resize', apply);
+})();
 const AIRCRAFT = {{ aircraft|tojson }};
 const STUDENTS = {{ students|tojson }};
 const INSTRUCTORS = {{ instructors|tojson }};
@@ -191,6 +263,10 @@ const HOURS = {{ hours|tojson }};
 const DAYS = [{% for d in week.days %}{date:{{ d.isoformat()|tojson }}, label:{{ (t('day.'+week.day_names[loop.index0]|lower) ~ ' ' ~ d.strftime('%-d'))|tojson }}},{% endfor %}];
 const ASSIGN_URL = {{ url_for('scheduling.assign')|tojson }};
 const DELETE_TPL = {{ (url_for('scheduling.plan') ~ '/booking/0/delete')|tojson }};
+const AUTO_URL = {{ url_for('scheduling.auto_schedule')|tojson }};
+const AUTO_APPLY_URL = {{ url_for('scheduling.auto_apply')|tojson }};
+const RESET_URL = {{ url_for('scheduling.reset_plan')|tojson }};
+const WEEK_KEY = {{ week.key|tojson }};
 const HOUR_COLORS = { 'PPL-A': '#0d6efd', 'Buildup': '#198754', 'AUPRT': '#fd7e14', 'Night': '#6f42c1' };
 const L = {
     assignFlight: {{ t('sched.assign_flight')|tojson }}, editFlight: {{ t('sched.edit_flight')|tojson }},
@@ -287,7 +363,7 @@ function renderAircraft(ac) {
                     ? `<div class="chip">${conf ? '<i class="bi bi-exclamation-triangle"></i> ' : ''}${bk.student}</div>`
                       + `<div class="chip sub">${bk.hour_type} · ${instrName[bk.instructor_id] || bk.instructor || ''}</div>`
                     : '';
-                html += `<td class="cell booked dcol dcol-${di} ${conf ? 'conflict' : ''}" draggable="true" style="background:${color}" data-booking='${JSON.stringify(bk)}'>${label}</td>`;
+                html += `<td class="cell booked dcol dcol-${di} ${conf ? 'conflict' : ''}" draggable="true" style="background:${color}" data-date="${d.date}" data-hour="${h}" data-booking='${JSON.stringify(bk)}'>${label}</td>`;
             } else {
                 html += `<td class="cell free dcol dcol-${di}" data-date="${d.date}" data-hour="${h}"></td>`;
             }
@@ -344,20 +420,19 @@ ALL.forEach(b => {
     for (let h = sh; h < eh; h++) busy.add(b.student_id + '@' + b.date + '|' + h);
 });
 
-const availStudents = {};   // "date|hour" -> [studentId,...]
-const availByStudent = {};  // studentId -> Set("date|hour")
+const availStudents = {};   // "date|hour" -> [studentId,...]  (aggregate planning overlay)
+const availByStudent = {};  // studentId -> Set("date|hour")    (full availability, for the filter)
 function isFull(s) { return s.assigned_hours >= s.requested_hours - 1e-6; }
 STUDENTS.forEach(s => {
     const set = new Set();
-    // Once a student has all their requested hours scheduled, hide their remaining availability.
-    if (!isFull(s)) {
-        Object.entries(s.slots_by_day).forEach(([d, hs]) => hs.forEach(h => {
-            const key = d + '|' + h;
-            if (busy.has(s.id + '@' + key)) return;   // already scheduled then
-            set.add(key);
+    Object.entries(s.slots_by_day).forEach(([d, hs]) => hs.forEach(h => {
+        const key = d + '|' + h;
+        set.add(key);  // per-student filter keeps the FULL original availability
+        // aggregate overlay: original availability on slots the student isn't already flying
+        if (!busy.has(s.id + '@' + key)) {
             (availStudents[key] = availStudents[key] || []).push(s.id);
-        }));
-    }
+        }
+    }));
     availByStudent[s.id] = set;
 });
 
@@ -369,13 +444,25 @@ function avxFor(id) {
 }
 
 function paintAvailability() {
-    document.querySelectorAll('td.cell.free').forEach(td => {
-        td.classList.remove('avail-hl', 'avail-dim', 'avail-one', 'avail-multi');
+    document.querySelectorAll('td.cell').forEach(td => {
+        td.classList.remove('avail-hl', 'avail-dim', 'avail-one', 'avail-multi', 'avail-ring', 'avail-ring-bad', 'other-faded');
         td.querySelectorAll('.avx').forEach(e => e.remove());
+        if (!td.dataset.date) return;
         const key = td.dataset.date + '|' + td.dataset.hour;
-        const ids = availStudents[key] || [];
+        const booked = td.classList.contains('booked');
+
+        // Filter mode: show ONLY the selected student — their flights (green ring where they
+        // match availability) and their free availability; other students' flights are faded.
         if (selectedStudent != null) {
-            if (availByStudent[selectedStudent] && availByStudent[selectedStudent].has(key)) {
+            const avail = availByStudent[selectedStudent] && availByStudent[selectedStudent].has(key);
+            if (booked) {
+                let bk = null; try { bk = JSON.parse(td.dataset.booking); } catch (e) {}
+                if (bk && bk.student_id === selectedStudent) {
+                    if (avail) td.classList.add('avail-ring');
+                } else {
+                    td.classList.add('other-faded');
+                }
+            } else if (avail) {
                 td.classList.add('avail-hl');
                 td.insertAdjacentHTML('beforeend', avxFor(selectedStudent));
             } else {
@@ -383,6 +470,18 @@ function paintAvailability() {
             }
             return;
         }
+
+        // Aggregate mode: ring each flight (green = within the student's availability,
+        // amber = outside it) so the whole match is verifiable at a glance.
+        if (booked) {
+            try {
+                const bk = JSON.parse(td.dataset.booking);
+                const ok = availByStudent[bk.student_id] && availByStudent[bk.student_id].has(key);
+                td.classList.add(ok ? 'avail-ring' : 'avail-ring-bad');
+            } catch (e) { /* ignore */ }
+            return;
+        }
+        const ids = availStudents[key] || [];
         if (ids.length === 1) {
             td.classList.add('avail-one');
             td.insertAdjacentHTML('beforeend', avxFor(ids[0]));
@@ -499,6 +598,36 @@ function refreshInstructors() {
     }
 }
 
+// How many hours the booking currently being edited contributes (so editing it doesn't
+// count against itself when capping the remaining hours).
+function ownEditDur() {
+    const id = parseInt(document.getElementById('mBookingId').value, 10) || null;
+    if (!id) return 0;
+    const bk = ALL.find(b => b.id === id);
+    return bk ? (minutesOf(bk.end) - minutesOf(bk.start)) / 60 : 0;
+}
+
+// A student can't be scheduled for more hours than they requested: disable End-time
+// options that would push the flight past their remaining hours.
+function limitEnd() {
+    const sid = parseInt(document.getElementById('mStudent').value, 10);
+    const stu = STUDENTS.find(s => s.id === sid);
+    const startSel = document.getElementById('mStart');
+    const endSel = document.getElementById('mEnd');
+    if (!stu) return;
+    const remaining = Math.max(0, (stu.requested_hours - stu.assigned_hours) + ownEditDur());
+    const startMin = minutesOf(startSel.value);
+    const maxEndMin = startMin + remaining * 60;
+    [...endSel.options].forEach(o => {
+        const m = minutesOf(o.value);
+        o.disabled = (m <= startMin) || (m > maxEndMin + 1e-6);
+    });
+    if (endSel.selectedOptions[0] && endSel.selectedOptions[0].disabled) {
+        const valid = [...endSel.options].filter(o => !o.disabled);
+        if (valid.length) endSel.value = valid[valid.length - 1].value;
+    }
+}
+
 function openAssign(aircraftId, date, hour) {
     prepModal();
     document.getElementById('mTitle').textContent = L.assignFlight;
@@ -516,6 +645,7 @@ function openAssign(aircraftId, date, hour) {
     document.getElementById('mHourType').value = defaultTypeFor(parseInt(document.getElementById('mStudent').value, 10));
     document.getElementById('mNotes').value = '';
     document.getElementById('mDelete').classList.add('d-none');
+    limitEnd();
     refreshInstructors();
     updateAvail();
     modal.show();
@@ -538,6 +668,8 @@ function openEdit(bk) {
     const del = document.getElementById('mDelete');
     del.classList.remove('d-none');
     del.onclick = () => doDelete(bk.id);
+    limitEnd();
+    document.getElementById('mEnd').value = bk.end;   // keep the saved end when editing
     updateAvail();
     modal.show();
 }
@@ -545,10 +677,11 @@ function openEdit(bk) {
 document.getElementById('mStudent').addEventListener('change', () => {
     // when the student changes, reset the hour type to their requested type
     document.getElementById('mHourType').value = defaultTypeFor(parseInt(document.getElementById('mStudent').value, 10));
+    limitEnd();
     updateAvail();
 });
 document.getElementById('mDate').addEventListener('change', () => { updateAvail(); refreshInstructors(); });
-document.getElementById('mStart').addEventListener('change', refreshInstructors);
+document.getElementById('mStart').addEventListener('change', () => { limitEnd(); refreshInstructors(); });
 document.getElementById('mEnd').addEventListener('change', refreshInstructors);
 
 function submitAssign(payload, warnEl) {
@@ -572,6 +705,18 @@ document.getElementById('mSave').addEventListener('click', () => {
         notes: document.getElementById('mNotes').value,
     };
     const msg = document.getElementById('mMsg'); msg.textContent = '';
+    // Hard guard: never schedule more hours than the student requested.
+    const stuId = parseInt(payload.student_id, 10);
+    const stu = STUDENTS.find(s => s.id === stuId);
+    if (stu) {
+        const dur = (minutesOf(payload.end) - minutesOf(payload.start)) / 60;
+        const remaining = Math.max(0, (stu.requested_hours - stu.assigned_hours) + ownEditDur());
+        if (dur > remaining + 1e-6) {
+            msg.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>'
+                + remaining + 'h ' + L.left + ' (' + stu.assigned_hours + '/' + stu.requested_hours + 'h)</span>';
+            return;
+        }
+    }
     submitAssign(payload).then(d => {
         if (d.ok) {
             if (!d.within_availability) {
@@ -603,5 +748,110 @@ function doDelete(id) {
         method: 'POST', headers: { 'X-CSRFToken': CSRF }
     }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
 }
+
+// ---- Reset planning: delete all bookings for the week ----
+const resetBtn = document.getElementById('resetBtn');
+if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+        if (!confirm({{ t('sched.confirm_reset')|tojson }})) return;
+        fetch(RESET_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ week: WEEK_KEY })
+        }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+    });
+}
+
+// ---- Show/hide the availability overlay (verify the matching) ----
+const toggleAvail = document.getElementById('toggleAvail');
+if (toggleAvail) {
+    const board = document.getElementById('board');
+    const planningDone = ALL.length > 0;          // any bookings => planning has run
+    const wrap = document.getElementById('availToggleWrap');
+    if (!planningDone) {
+        // during planning the availability must be visible; the toggle isn't offered
+        if (wrap) wrap.style.display = 'none';
+        board.classList.remove('hide-avail');
+    } else {
+        // after planning, hide availability by default for a clean schedule; toggle to verify
+        toggleAvail.checked = false;
+        board.classList.add('hide-avail');
+    }
+    toggleAvail.addEventListener('change', () => {
+        board.classList.toggle('hide-avail', !toggleAvail.checked);
+    });
+}
+
+// ---- Auto-schedule (linear program) ----
+// Per-student "allow split hours" toggles (unchecked = prefer contiguous block).
+(function renderSplitList() {
+    const box = document.getElementById('splitList');
+    if (!box) return;
+    box.innerHTML = STUDENTS.map(s => {
+        const req = (s.requests || []).map(r => `${r.hours}h ${r.hour_type}`).join(', ') || '—';
+        return `<div class="d-flex justify-content-between align-items-center py-1">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input split-stu" type="checkbox" value="${s.id}" id="split-${s.id}">
+                <label class="form-check-label small" for="split-${s.id}">${s.name}</label>
+            </div>
+            <span class="badge bg-light text-dark border ms-2">${req}</span>
+        </div>`;
+    }).join('') || '<span class="text-muted small">—</span>';
+    const all = document.getElementById('optSplitAll');
+    if (all) all.addEventListener('change', () => {
+        box.querySelectorAll('.split-stu').forEach(c => { c.checked = all.checked; });
+    });
+})();
+
+let autoProposal = null;
+const autoGenBtn = document.getElementById('autoGenerate');
+const autoApplyBtn = document.getElementById('autoApply');
+const autoMsg = document.getElementById('autoMsg');
+const autoResult = document.getElementById('autoResult');
+
+autoGenBtn.addEventListener('click', () => {
+    autoMsg.innerHTML = '<span class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span>' + {{ t('sched.auto_working')|tojson }} + '</span>';
+    autoResult.classList.add('d-none');
+    autoApplyBtn.classList.add('d-none');
+    fetch(AUTO_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ week: WEEK_KEY,
+            clear_existing: document.getElementById('optClear').checked,
+            split_students: [...document.querySelectorAll('.split-stu:checked')].map(c => parseInt(c.value, 10)),
+            distribute_planes: document.getElementById('optPlanes').checked,
+            distribute_week: document.getElementById('optWeek').checked })
+    }).then(r => r.json()).then(d => {
+        if (!d.ok) { autoMsg.innerHTML = '<span class="text-danger">' + (d.error || 'Error') + '</span>'; return; }
+        autoProposal = d;
+        autoMsg.textContent = '';
+        if (!d.flights.length) { autoResult.innerHTML = '<div class="text-muted">' + {{ t('sched.auto_none')|tojson }} + '</div>'; autoResult.classList.remove('d-none'); return; }
+        let html = '<hr><div class="fw-semibold mb-2">' + d.flights.length + ' ' + {{ t('logbook.flights')|tojson }} + '</div>';
+        html += '<table class="table table-sm mb-2"><tbody>';
+        d.summary.forEach(s => {
+            const ok = s.proposed >= s.requested;
+            html += `<tr><td>${s.name}</td><td class="text-end"><span class="badge ${ok ? 'bg-success' : 'bg-warning text-dark'}">${s.proposed}h / ${s.requested}h</span></td></tr>`;
+        });
+        html += '</tbody></table>';
+        html += '<div style="max-height:200px;overflow:auto"><table class="table table-sm small mb-0">';
+        d.flights.slice().sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).forEach(f => {
+            html += `<tr><td>${f.date} ${f.start}–${f.end}</td><td>${f.student}</td><td>${f.aircraft}</td><td><span class="badge bg-primary">${f.hour_type}</span></td></tr>`;
+        });
+        html += '</table></div>';
+        autoResult.innerHTML = html;
+        autoResult.classList.remove('d-none');
+        autoApplyBtn.classList.remove('d-none');
+    }).catch(() => { autoMsg.innerHTML = '<span class="text-danger">Network error</span>'; });
+});
+
+autoApplyBtn.addEventListener('click', () => {
+    if (!autoProposal) return;
+    autoMsg.innerHTML = '<span class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span></span>';
+    fetch(AUTO_APPLY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ week: WEEK_KEY, flights: autoProposal.flights, clear_existing: autoProposal.clear_existing })
+    }).then(r => r.json()).then(d => {
+        if (d.ok) location.reload();
+        else autoMsg.innerHTML = '<span class="text-danger">' + (d.error || 'Error') + '</span>';
+    }).catch(() => { autoMsg.innerHTML = '<span class="text-danger">Network error</span>'; });
+});
 </script>
 {% endblock %}

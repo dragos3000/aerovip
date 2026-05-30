@@ -119,8 +119,10 @@ def _fetch_weather(api_key, icao):
             if data.get('results', 0) > 0:
                 result['taf'] = data['data'][0]
 
-    except requests.RequestException as e:
-        result['error'] = f'Failed to fetch weather: {e}'
+    except requests.exceptions.Timeout:
+        result['error'] = 'Weather service timed out. Will retry on the next refresh.'
+    except requests.RequestException:
+        result['error'] = 'Could not reach the weather service.'
 
     return result
 
@@ -254,6 +256,15 @@ def refresh_now():
     except Exception:
         logger.exception('Weather cache: forced refresh failed')
         return False
+
+
+def refresh_now_async(app):
+    """Refresh the cache in a background thread so the caller (e.g. saving settings)
+    isn't blocked by a slow/timing-out weather API."""
+    def _run():
+        with app.app_context():
+            refresh_now()
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def start_background_refresh(app):

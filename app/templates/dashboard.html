@@ -149,6 +149,36 @@
     </div>
 </div>
 
+{% if suntimes %}
+<!-- Aeronautical sun times -->
+<div class="card mt-3">
+    <div class="card-header">
+        <i class="bi bi-brightness-high me-2"></i>{{ t('sun.title') }}
+    </div>
+    <div class="card-body">
+        <div class="row text-center g-3">
+            <div class="col-6 col-md-3">
+                <div class="text-muted small text-uppercase">{{ t('sun.sunrise') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-sunrise text-warning me-1"></i>{{ disp(suntimes.sunrise, '%H:%M') }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small text-uppercase">{{ t('sun.sunset') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-sunset text-warning me-1"></i>{{ disp(suntimes.sunset, '%H:%M') }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small text-uppercase">{{ t('sun.night_start') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-moon-stars text-primary me-1"></i>{{ disp(suntimes.dusk, '%H:%M') }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="text-muted small text-uppercase">{{ t('sun.night_end') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-moon text-primary me-1"></i>{{ disp(suntimes.dawn, '%H:%M') }}</div>
+            </div>
+        </div>
+        <div class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>{{ t('sun.note') }}</div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Home airfield information -->
 <div class="card mt-3">
     <div class="card-header">

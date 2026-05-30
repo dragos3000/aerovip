@@ -7,11 +7,24 @@ fleet management, and live airfield/weather information. Installable as a PWA.
 ## Features
 
 - **Weekly availability scheduling** — students paint their availability on a drag
-  grid and request hours by type (PPL-A / Buildup / AUPRT / Night).
+  grid and request hours by type (PPL-A / Buildup / AUPRT / Night). Submissions are
+  validated against the school's rules:
+  - **Requested hours ≤ painted slots** (each square is one hour) — you can't ask
+    for 3h while marking only 2 squares.
+  - **PPL-A is exclusive** — unlicensed PPL-A training can't be combined with
+    Buildup / AUPRT / Night in the same week.
+  - **Night needs post-sunset availability** — Night hours require at least one
+    marked slot at/after the airfield's sunset (the grid shades the night window).
+- **Auto-scheduler (linear program)** — a PuLP/CBC integer program solves the
+  many-students/few-resources matching fairly (everyone's first hours weighted
+  highest), with toggles to keep-vs-rebuild, distribute over planes, distribute over
+  the week, and split per-student hours. Honours **exact fractional requests** (a
+  3.5h request is scheduled as 3.5h, not rounded). Preview → apply.
 - **Aircraft-centric planning board** — one grid per aircraft showing every
   student's availability at once (overlaps in red), drag-to-reschedule, instructor
-  double-booking guard, and a per-student requested-hours cap. Mobile shows one day
-  at a time via a day selector.
+  double-booking guard, and a per-student requested-hours cap (the assign modal
+  disables over-limit end times and blocks save). Mobile shows one day at a time via
+  a day selector.
 - **EASA pilot logbook** — instructors log flown hours per student/day (total
   auto-calculated from times, shown as H:MM); PPL-A flights get the EASA exercises
   multi-select; filter by student/period; sortable, responsive DataTables.
@@ -48,7 +61,8 @@ cp .env.example .env          # set DATABASE_URL, SECRET_KEY, CHECKWX_API_KEY, I
 
 createdb aerovip
 flask --app run db upgrade    # NOTE: migrations/ is gitignored — see below
-flask --app run seed          # creates default accounts + sample aircraft
+flask --app run seed                # creates default accounts + sample aircraft
+flask --app run seed-availability   # (optional) sample rule-compliant student availability
 python run.py
 ```
 

@@ -11,6 +11,7 @@
     .avail-grid th .dt { color: #888; font-weight: 400; font-size: .72rem; }
     .avail-grid td.hour-label { background: #f8f9fa; color: #666; font-size: .75rem; width: 56px; padding: 2px 6px; }
     .avail-grid td.cell { height: 26px; cursor: pointer; background: #fff; transition: background .05s; }
+    .avail-grid td.cell.night { background: #dbe3f1; }   /* after sunset */
     .avail-grid td.cell:hover { background: #eef4ff; }
     .avail-grid td.cell.on { background: #0d6efd; }
     .avail-grid td.cell.on:hover { background: #0b5ed7; }
@@ -43,7 +44,11 @@
                 </div>
             </div>
             <div class="card-body">
-                <p class="text-muted small mb-2"><i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}</p>
+                <p class="text-muted small mb-2">
+                    <i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}
+                    <span class="ms-2"><span style="display:inline-block;width:12px;height:12px;background:#dbe3f1;border:1px solid #ccc;vertical-align:middle"></span>
+                    <i class="bi bi-moon-stars ms-1"></i> {{ t('sched.night_after_sunset') }}</span>
+                </p>
                 <div class="table-responsive">
                     <table class="avail-grid">
                         <thead>
@@ -59,7 +64,7 @@
                             <tr>
                                 <td class="hour-label">{{ '%02d:00'|format(h) }}</td>
                                 {% for d in week.days %}
-                                <td class="cell" data-date="{{ d.isoformat() }}" data-hour="{{ h }}"></td>
+                                <td class="cell {{ 'night' if h >= night_start.get(d.isoformat(), 99) }}" data-date="{{ d.isoformat() }}" data-hour="{{ h }}"></td>
                                 {% endfor %}
                             </tr>
                             {% endfor %}
@@ -136,12 +141,35 @@ const reqContainer = document.getElementById('requests');
 const reqTpl = document.getElementById('reqTemplate');
 function addRequest(type, hours) {
     const node = reqTpl.content.cloneNode(true);
-    if (type) node.querySelector('.req-type').value = type;
+    const sel = node.querySelector('.req-type');
+    if (type) sel.value = type;
     if (hours != null) node.querySelector('.req-hours').value = hours;
+    sel.dataset.prev = sel.value;
+    sel.addEventListener('change', () => enforceExclusivity(sel));
     node.querySelector('.req-del').addEventListener('click', e => e.target.closest('.req-row').remove());
     reqContainer.appendChild(node);
 }
-document.getElementById('addReq').addEventListener('click', () => addRequest());
+
+// PPL-A (unlicensed training) is not compatible with Buildup/AUPRT/Night.
+function enforceExclusivity(sel) {
+    const others = [...document.querySelectorAll('.req-type')].filter(s => s !== sel);
+    if (sel.value === 'PPL-A') {
+        const conflict = others.filter(s => s.value !== 'PPL-A');
+        if (conflict.length && !confirm({{ t('sched.ppl_confirm')|tojson }})) { sel.value = sel.dataset.prev; return; }
+        conflict.forEach(s => s.closest('.req-row').remove());
+    } else {
+        const ppl = others.filter(s => s.value === 'PPL-A');
+        if (ppl.length && !confirm({{ t('sched.other_confirm')|tojson }})) { sel.value = sel.dataset.prev; return; }
+        ppl.forEach(s => s.closest('.req-row').remove());
+    }
+    sel.dataset.prev = sel.value;
+}
+
+document.getElementById('addReq').addEventListener('click', () => {
+    // default a new row to a type consistent with what's already chosen
+    const vals = [...document.querySelectorAll('.req-type')].map(s => s.value);
+    addRequest(vals.some(v => v !== 'PPL-A') ? 'Buildup' : 'PPL-A', 1);
+});
 existingRequests.forEach(r => addRequest(r.hour_type, r.hours));
 if (existingRequests.length === 0) addRequest();
 
@@ -158,6 +186,15 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     });
     const msg = document.getElementById('saveMsg');
     msg.textContent = '';
+    // Can't ask for more hours than the number of squares marked (each square = 1h).
+    const totalReq = requests.reduce((a, r) => a + r.hours, 0);
+    if (totalReq > slots.length + 1e-6) {
+        msg.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>'
+            + {{ t('err.hours_exceed_avail')|tojson }}
+                .replace('{requested}', (Math.round(totalReq * 10) / 10)).replace('{available}', slots.length)
+            + '</span>';
+        return;
+    }
     fetch('{{ url_for("scheduling.save_availability") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
