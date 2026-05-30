@@ -172,7 +172,7 @@
 <!-- Mobile day selector (one day at a time instead of a wide scrolling grid) -->
 <div class="card mb-2 d-lg-none plan-daybar">
     <div class="card-body p-1 d-flex gap-1">
-        {% for d in week.days %}
+        {% for d in days %}
         <button type="button" class="btn btn-sm btn-outline-secondary daybtn flex-fill" data-day="{{ loop.index0 }}">
             {{ t('day.' + week.day_names[loop.index0]|lower) }}<br><small>{{ d.strftime('%-d') }}</small>
         </button>
@@ -260,7 +260,7 @@ const AIRCRAFT = {{ aircraft|tojson }};
 const STUDENTS = {{ students|tojson }};
 const INSTRUCTORS = {{ instructors|tojson }};
 const HOURS = {{ hours|tojson }};
-const DAYS = [{% for d in week.days %}{date:{{ d.isoformat()|tojson }}, label:{{ (t('day.'+week.day_names[loop.index0]|lower) ~ ' ' ~ d.strftime('%-d'))|tojson }}},{% endfor %}];
+const DAYS = [{% for d in days %}{date:{{ d.isoformat()|tojson }}, label:{{ (t('day.'+week.day_names[loop.index0]|lower) ~ ' ' ~ d.strftime('%-d'))|tojson }}},{% endfor %}];
 const ASSIGN_URL = {{ url_for('scheduling.assign')|tojson }};
 const DELETE_TPL = {{ (url_for('scheduling.plan') ~ '/booking/0/delete')|tojson }};
 const AUTO_URL = {{ url_for('scheduling.auto_schedule')|tojson }};

@@ -320,6 +320,7 @@ def plan():
     return render_template(
         'scheduling/plan.html',
         week=week,
+        days=weekutils.open_week_dates(iso_year, iso_week),   # Mon..Sat (school closed Sunday)
         hours=list(range(weekutils.GRID_START_HOUR, weekutils.GRID_END_HOUR)),
         hour_types=HOUR_TYPES,
         aircraft=aircraft,
