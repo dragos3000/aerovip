@@ -57,6 +57,15 @@ def week_dates(iso_year, iso_week):
     return [monday + timedelta(days=i) for i in range(7)]
 
 
+# The school is closed on Sunday — it can't be picked for availability. (Mon=0 … Sun=6)
+CLOSED_WEEKDAYS = {6}
+
+
+def open_week_dates(iso_year, iso_week):
+    """Week dates the school operates on (Monday..Saturday — Sunday excluded)."""
+    return [d for d in week_dates(iso_year, iso_week) if d.weekday() not in CLOSED_WEEKDAYS]
+
+
 def week_range_label(iso_year, iso_week):
     """e.g. 'Jun 1 – Jun 7, 2026'."""
     days = week_dates(iso_year, iso_week)

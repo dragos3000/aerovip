@@ -54,7 +54,7 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                {% for d in week.days %}
+                                {% for d in days %}
                                 <th><span class="dow">{{ t('day.' + week.day_names[loop.index0]|lower) }}</span><br><span class="dt">{{ d.strftime('%b %-d') }}</span></th>
                                 {% endfor %}
                             </tr>
@@ -63,7 +63,7 @@
                             {% for h in hours %}
                             <tr>
                                 <td class="hour-label">{{ '%02d:00'|format(h) }}</td>
-                                {% for d in week.days %}
+                                {% for d in days %}
                                 <td class="cell {{ 'night' if h >= night_start.get(d.isoformat(), 99) }}" data-date="{{ d.isoformat() }}" data-hour="{{ h }}"></td>
                                 {% endfor %}
                             </tr>

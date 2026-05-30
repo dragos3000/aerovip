@@ -36,7 +36,7 @@ def seed_availability():
         {'slots': [(3, h) for h in (16, 17)],          'req': [('PPL-A', 1.5)]},
         {'slots': [(4, h) for h in (21, 22, 23)],      'req': [('Night', 2.0)]},
         {'slots': [(5, h) for h in (19, 20, 21, 22)],  'req': [('Buildup', 2.0), ('Night', 1.0)]},
-        {'slots': [(6, h) for h in (9, 10, 11)],       'req': [('PPL-A', 2.5)]},
+        {'slots': [(5, h) for h in (9, 10, 11)],       'req': [('PPL-A', 2.5)]},
     ]
 
     students = User.query.filter_by(role='student').order_by(User.first_name).all()
@@ -51,6 +51,8 @@ def seed_availability():
         total_req = sum(h for _t, h in p['req'])
 
         # Safety checks so we never seed data that breaks the app's own rules.
+        assert all(_date.fromisoformat(d).weekday() != 6 for d, _h in slots), \
+            (stu.full_name, 'Sunday slot')        # school is closed Sunday
         assert total_req <= len(slots) + 1e-6, (stu.full_name, total_req, len(slots))
         types = {t for t, _h in p['req']}
         assert not ('PPL-A' in types and types - {'PPL-A'}), stu.full_name

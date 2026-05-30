@@ -68,16 +68,20 @@ def availability():
         existing_requests = [{'hour_type': r.hour_type, 'hours': r.hours} for r in submission.requests]
         notes = submission.notes or ''
 
+    # School is closed Sunday — only Mon..Sat are pickable.
+    open_days = weekutils.open_week_dates(iso_year, iso_week)
+
     # Night begins at sunset (per day) — used to shade the night window on the grid.
     from app.sun import sunset_local
     night_start = {}
-    for d in week['days']:
+    for d in open_days:
         ss = sunset_local(d)
         night_start[d.isoformat()] = (ss.hour + (1 if ss.minute else 0)) if ss else 99
 
     return render_template(
         'scheduling/availability.html',
         week=week,
+        days=open_days,
         hours=list(range(weekutils.GRID_START_HOUR, weekutils.GRID_END_HOUR)),
         hour_types=HOUR_TYPES,
         existing_slots=existing_slots,
@@ -105,7 +109,8 @@ def save_availability():
     if (iso_year, iso_week) < (cur_y, cur_w):
         return jsonify({'ok': False, 'error': 'Cannot submit availability for a past week.'}), 400
 
-    valid_dates = {d.isoformat() for d in weekutils.week_dates(iso_year, iso_week)}
+    # School is closed Sunday — only Mon..Sat slots are accepted.
+    valid_dates = {d.isoformat() for d in weekutils.open_week_dates(iso_year, iso_week)}
 
     # If Night hours are requested, require at least one availability slot after sunset.
     def _num(v):
