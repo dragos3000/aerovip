@@ -86,6 +86,12 @@ The app is served under a **path prefix** (`/aerovip/`) behind **Cloudflare**.
   its path, so Cloudflare serves it fresh with no manual purge.
 - Static files are served by Nginx from `app/static/`; everything else proxies to
   Gunicorn on `127.0.0.1:8086`. `ProxyFix` honours `X-Forwarded-Prefix`.
+- The domain is **shared with another Flask app** (`/app/`), so a unique
+  `SESSION_COOKIE_NAME = 'aerovip_session'` is set — otherwise both apps' default
+  `session` cookies collide and log users out.
+- This is a **shared multi-tenant box (96 cores)**, so Gunicorn uses a small fixed
+  worker pool (`workers = 3`, `gthread`), NOT `cpu_count()*2+1` (which would spawn
+  ~193 workers and eat all the RAM).
 - The weather cache refreshes hourly and **skips the API call on restart if the
   cache is still fresh** (avoids burning the CheckWX quota).
 

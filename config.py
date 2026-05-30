@@ -10,3 +10,9 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CHECKWX_API_KEY = os.environ.get('CHECKWX_API_KEY', '')
     ICAO_AIRPORT = os.environ.get('ICAO_AIRPORT', 'LRBS')
+
+    # The app shares start-line.ro with another Flask app under /app/, both of which
+    # defaulted to the cookie name 'session' — so their sessions collided and logged
+    # users out. A unique name fixes it (no path scoping needed, avoids prefix issues).
+    SESSION_COOKIE_NAME = 'aerovip_session'
+    SESSION_COOKIE_SAMESITE = 'Lax'

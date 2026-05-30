@@ -117,17 +117,16 @@
         {% endif %}
 
         <div class="mt-auto">
-            <!-- Controls live in the menu on mobile (hidden in the top bar there) -->
-            <div class="sidebar-controls d-lg-none px-3 pb-2">
-                <div class="d-flex gap-2 mb-2">
-                    <div class="btn-group btn-group-sm w-100" role="group">
-                        <a href="{{ url_for('main.set_tz', mode='lt') }}" class="btn {{ 'btn-primary' if tz_mode == 'lt' else 'btn-outline-light' }}">LT</a>
-                        <a href="{{ url_for('main.set_tz', mode='utc') }}" class="btn {{ 'btn-primary' if tz_mode == 'utc' else 'btn-outline-light' }}">UTC</a>
-                    </div>
-                    <div class="btn-group btn-group-sm w-100" role="group">
-                        <a href="{{ url_for('main.set_language', lang='ro') }}" class="btn {{ 'btn-primary' if current_lang == 'ro' else 'btn-outline-light' }}">RO</a>
-                        <a href="{{ url_for('main.set_language', lang='en') }}" class="btn {{ 'btn-primary' if current_lang == 'en' else 'btn-outline-light' }}">EN</a>
-                    </div>
+            <div class="sidebar-controls px-3 pt-2 pb-2">
+                <!-- Time zone (iOS-style toggle) -->
+                <div class="seg-toggle mb-2">
+                    <a href="{{ url_for('main.set_tz', mode='lt') }}" class="{{ 'active' if tz_mode == 'lt' }}">LT</a>
+                    <a href="{{ url_for('main.set_tz', mode='utc') }}" class="{{ 'active' if tz_mode == 'utc' }}">UTC</a>
+                </div>
+                <!-- Language (iOS-style toggle) -->
+                <div class="seg-toggle mb-2">
+                    <a href="{{ url_for('main.set_language', lang='ro') }}" class="{{ 'active' if current_lang == 'ro' }}">RO</a>
+                    <a href="{{ url_for('main.set_language', lang='en') }}" class="{{ 'active' if current_lang == 'en' }}">EN</a>
                 </div>
                 <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light w-100">
                     <i class="bi bi-box-arrow-right me-1"></i>{{ t('nav.logout') }}
@@ -150,26 +149,7 @@
                 <img src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="Aero Vip" class="d-lg-none me-2" style="height:30px">
                 <h5 class="mb-0 fw-bold d-none d-lg-block">{% block page_title %}{{ t('nav.dashboard') }}{% endblock %}</h5>
             </div>
-            <div class="d-none d-lg-flex align-items-center gap-3">
-                <!-- Time zone selector -->
-                <div class="btn-group btn-group-sm" role="group" title="Local time / UTC">
-                    <a href="{{ url_for('main.set_tz', mode='lt') }}"
-                       class="btn {{ 'btn-primary' if tz_mode == 'lt' else 'btn-outline-secondary' }}">LT</a>
-                    <a href="{{ url_for('main.set_tz', mode='utc') }}"
-                       class="btn {{ 'btn-primary' if tz_mode == 'utc' else 'btn-outline-secondary' }}">UTC</a>
-                </div>
-                <!-- Language Selector -->
-                <div class="btn-group btn-group-sm" role="group">
-                    <a href="{{ url_for('main.set_language', lang='ro') }}"
-                       class="btn {{ 'btn-primary' if current_lang == 'ro' else 'btn-outline-secondary' }}">RO</a>
-                    <a href="{{ url_for('main.set_language', lang='en') }}"
-                       class="btn {{ 'btn-primary' if current_lang == 'en' else 'btn-outline-secondary' }}">EN</a>
-                </div>
-                <span class="badge rounded-pill badge-{{ current_user.role }}">{{ t('role.' + current_user.role) }}</span>
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-box-arrow-right"></i> {{ t('nav.logout') }}
-                </a>
-            </div>
+            <span class="badge rounded-pill badge-{{ current_user.role }}">{{ t('role.' + current_user.role) }}</span>
         </nav>
 
         <div class="content-area">

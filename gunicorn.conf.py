@@ -1,11 +1,13 @@
-import multiprocessing
-
 # Server socket
 bind = "127.0.0.1:8086"
 
-# Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"
+# Worker processes.
+# NOTE: this is a SHARED 96-core box running several apps, so cpu_count()*2+1
+# would spawn ~193 workers — massive memory use and slowness. A small fixed pool
+# of threaded workers is plenty here and handles blocking weather I/O well.
+workers = 3
+worker_class = "gthread"
+threads = 4
 worker_connections = 1000
 timeout = 120
 keepalive = 5

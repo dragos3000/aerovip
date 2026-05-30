@@ -11,6 +11,10 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def index():
+    # Logged-in users hitting the landing page (e.g. typing /aerovip/) get the app,
+    # not the public hero — which would render blank inside the authenticated shell.
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
     return render_template('index.html')
 
 
@@ -18,14 +22,14 @@ def index():
 def set_language(lang):
     if lang in ('en', 'ro'):
         session['lang'] = lang
-    return redirect(request.referrer or '/')
+    return redirect(request.referrer or url_for('main.dashboard'))
 
 
 @bp.route('/tz/<mode>')
 def set_tz(mode):
     if mode in ('lt', 'utc'):
         session['tz'] = mode
-    return redirect(request.referrer or '/')
+    return redirect(request.referrer or url_for('main.dashboard'))
 
 
 @bp.route('/assets/<int:v>/<path:filename>')

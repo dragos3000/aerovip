@@ -418,8 +418,10 @@ const modal = new bootstrap.Modal(modalEl);
 
 function timeOptions() {
     let opts = '';
-    HOURS.concat([HOURS[HOURS.length - 1] + 1]).forEach(h => {
-        ['00', '30'].forEach(m => {
+    const list = HOURS.concat([HOURS[HOURS.length - 1] + 1]);   // e.g. 6..24
+    list.forEach((h, i) => {
+        const mins = (i === list.length - 1) ? ['00'] : ['00', '30'];  // last hour (24): only :00
+        mins.forEach(m => {
             const v = String(h).padStart(2, '0') + ':' + m;   // local value submitted to server
             const d = dispH(h) + ':' + m;                       // label shown to the user
             opts += `<option value="${v}">${d}</option>`;

@@ -27,7 +27,7 @@ DAY_NAMES_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 # Hour range shown on the availability grid / planning board (start hours).
 GRID_START_HOUR = 6
-GRID_END_HOUR = 22  # exclusive: last selectable cell starts at 21:00
+GRID_END_HOUR = 24  # exclusive: last selectable cell starts at 23:00
 
 
 def current_iso(today=None):

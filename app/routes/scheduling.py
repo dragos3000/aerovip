@@ -178,13 +178,15 @@ def my_schedule():
 # Planner: weekly planning board
 # ---------------------------------------------------------------------------
 def _booking_dict(b):
+    # A flight ending at midnight is shown as 24:00 (not 00:00) so it fills the 23:00 row.
+    end_hour = b.end_time.hour + (24 if b.end_time.date() > b.start_time.date() else 0)
     return {
         'id': b.id,
         'student_id': b.student_id,
         'student': b.student.full_name,
         'date': b.start_time.date().isoformat(),
         'start': b.start_time.strftime('%H:%M'),
-        'end': b.end_time.strftime('%H:%M'),
+        'end': f'{end_hour:02d}:{b.end_time.minute:02d}',
         'instructor_id': b.instructor_id,
         'instructor': b.instructor.full_name,
         'aircraft_id': b.aircraft_id,
@@ -286,7 +288,10 @@ def assign():
         return jsonify({'ok': False, 'error': _t('err.invalid_type')}), 400
 
     start_time = datetime.combine(slot_date, datetime.min.time()).replace(hour=start_h, minute=start_m)
-    end_time = datetime.combine(slot_date, datetime.min.time()).replace(hour=end_h, minute=end_m)
+    if end_h == 24:
+        end_time = datetime.combine(slot_date, datetime.min.time()) + timedelta(days=1)
+    else:
+        end_time = datetime.combine(slot_date, datetime.min.time()).replace(hour=end_h, minute=end_m)
     if end_time <= start_time:
         return jsonify({'ok': False, 'error': _t('err.end_after_start')}), 400
 

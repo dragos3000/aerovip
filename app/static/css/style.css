@@ -24,6 +24,7 @@ body {
     width: 260px;
     background: linear-gradient(180deg, var(--av-dark) 0%, var(--av-navy) 100%);
     height: 100vh;
+    height: 100dvh;          /* dynamic viewport height — avoids the mobile 100vh overshoot */
     overflow-y: auto;        /* scroll if the menu is taller than the screen */
     position: fixed;
     left: 0;
@@ -180,7 +181,12 @@ body {
     border: none;
     border-radius: var(--av-radius);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    overflow: hidden;   /* consistent rounded corners — clips flush tables, maps, images */
+}
+/* Only clip cards whose last body sits flush to the edge (map iframe / flush tables)
+   so their bottom corners round — without clipping DataTables content in normal cards. */
+.card > .card-body.p-0:last-child {
+    overflow: hidden;
+    border-radius: 0 0 var(--av-radius) var(--av-radius);
 }
 
 .card-header {
@@ -292,6 +298,12 @@ table.dataTable thead th {
         transform: translateX(0);
         box-shadow: 0 0 40px rgba(0,0,0,0.4);
     }
+    /* Don't push the controls/user to the very bottom on mobile — let them flow
+       right under the menu so they're always visible (the 100vh bottom can be
+       off-screen behind the browser toolbar). */
+    .sidebar .mt-auto {
+        margin-top: 1rem !important;
+    }
     .main-content {
         margin-left: 0;
     }
@@ -359,6 +371,35 @@ table.dataTable thead th {
     padding: 1rem 1.25rem;
     border-top: 1px solid rgba(255,255,255,0.08);
     background: rgba(0,0,0,0.2);
+}
+
+/* iOS-style segmented toggle (LT/UTC, RO/EN) in the sidebar */
+.seg-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.10);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+}
+.seg-toggle a {
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.seg-toggle a.active {
+    background: #ffffff;
+    color: var(--av-dark);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.seg-toggle a:not(.active):hover {
+    color: #ffffff;
 }
 
 .sidebar-user .user-name {
