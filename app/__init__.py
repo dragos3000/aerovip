@@ -27,6 +27,15 @@ def create_app(config_class=Config):
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'info'
 
+    # Format decimal flight hours as H:MM (e.g. 1.75 -> "1:45")
+    def format_hm(hours):
+        try:
+            total = int(round(float(hours or 0) * 60))
+        except (TypeError, ValueError):
+            total = 0
+        return f'{total // 60}:{total % 60:02d}'
+    app.jinja_env.filters['hm'] = format_hm
+
     from app.models import User
     from app.translations import get_translation
 
@@ -48,12 +57,28 @@ def create_app(config_class=Config):
 
         return dict(t=t, current_lang=lang)
 
-    from app.routes import auth, main, admin, scheduling, aircraft
+    @app.context_processor
+    def inject_tz():
+        from app import weekutils
+        mode = session.get('tz', 'lt')
+
+        def disp(dt, fmt='%H:%M'):
+            """Format a (local) booking datetime, converting to UTC when in UTC mode."""
+            if dt is None:
+                return ''
+            if mode == 'utc':
+                return weekutils.to_utc(dt).strftime(fmt)
+            return dt.strftime(fmt)
+
+        return dict(tz_mode=mode, disp=disp)
+
+    from app.routes import auth, main, admin, scheduling, aircraft, logbook
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(scheduling.bp)
     app.register_blueprint(aircraft.bp)
+    app.register_blueprint(logbook.bp)
 
     # Start background weather/NOTAMs cache refresh thread
     from app.weather_cache import start_background_refresh

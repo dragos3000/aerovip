@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ t('sched.my_schedule') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('sched.my_schedule') }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar2-check me-2"></i>{{ t('sched.upcoming_flights') }}</span>
+        {% if current_user.role == 'student' %}
+        <a href="{{ url_for('scheduling.availability') }}" class="btn btn-sm btn-av-primary">
+            <i class="bi bi-calendar-plus"></i> {{ t('sched.submit_availability') }}
+        </a>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ t('table.date') }}</th>
+                        <th>{{ t('table.time') }}</th>
+                        <th>{{ t('table.type') }}</th>
+                        <th>{{ t('table.aircraft') }}</th>
+                        {% if current_user.role == 'instructor' %}
+                        <th>{{ t('table.student') }}</th>
+                        {% else %}
+                        <th>{{ t('table.instructor') }}</th>
+                        {% endif %}
+                        <th>{{ t('form.notes') }}</th>
+                        {% if current_user.role == 'instructor' %}<th></th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in bookings %}
+                    <tr>
+                        <td><strong>{{ disp(b.start_time, '%a, %b %-d') }}</strong></td>
+                        <td>{{ disp(b.start_time, '%H:%M') }} – {{ disp(b.end_time, '%H:%M') }}</td>
+                        <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
+                        <td><strong>{{ b.aircraft.registration }}</strong> <small class="text-muted">{{ b.aircraft.model }}</small></td>
+                        {% if current_user.role == 'instructor' %}
+                        <td>{{ b.student.full_name }}</td>
+                        {% else %}
+                        <td>{{ b.instructor.full_name }}</td>
+                        {% endif %}
+                        <td class="text-muted small">{{ b.notes }}</td>
+                        {% if current_user.role == 'instructor' %}
+                        <td class="text-nowrap">
+                            <a href="{{ url_for('logbook.add', booking_id=b.id) }}" class="btn btn-sm btn-outline-primary" title="{{ t('logbook.add') }}">
+                                <i class="bi bi-journal-plus"></i>
+                            </a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">{{ t('sched.no_assigned') }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

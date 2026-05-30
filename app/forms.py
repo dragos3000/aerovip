@@ -23,7 +23,7 @@ class UserEditForm(FlaskForm):
     first_name = StringField('First Name', validators=[DataRequired(), Length(max=64)])
     last_name = StringField('Last Name', validators=[DataRequired(), Length(max=64)])
     phone = StringField('Phone', validators=[Optional(), Length(max=20)])
-    role = SelectField('Role', choices=[('student', 'Student'), ('instructor', 'Instructor'), ('admin', 'Admin')])
+    role = SelectField('Role', choices=[('student', 'Student'), ('instructor', 'Instructor'), ('manager', 'Manager'), ('admin', 'Admin')])
     is_active = BooleanField('Active')
 
 

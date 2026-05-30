@@ -6,6 +6,7 @@
     --av-gold: #f0a500;
     --av-light: #e8edf3;
     --av-white: #ffffff;
+    --av-radius: 12px;   /* single source of truth for card corners */
 }
 
 body {
@@ -77,6 +78,7 @@ body {
 .main-content {
     margin-left: 260px;
     min-height: 100vh;
+    min-width: 0;
 }
 
 .top-navbar {
@@ -169,8 +171,14 @@ body {
 /* Cards */
 .card {
     border: none;
-    border-radius: 12px;
+    border-radius: var(--av-radius);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+/* Round the inner corners for cards whose body sits flush (tables/maps/images) */
+.card > .card-body.p-0:last-child,
+.card > .card-body.p-0:last-child > .table-responsive {
+    border-radius: 0 0 var(--av-radius) var(--av-radius);
+    overflow: hidden;
 }
 
 .card-header {
@@ -240,7 +248,7 @@ table.dataTable thead th {
 
 .auth-card {
     background: white;
-    border-radius: 16px;
+    border-radius: var(--av-radius);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     max-width: 420px;
     width: 100%;
@@ -255,6 +263,7 @@ table.dataTable thead th {
 /* Badge styles */
 .badge-student { background: var(--av-accent); }
 .badge-instructor { background: var(--av-gold); color: #333; }
+.badge-manager { background: #6f42c1; }
 .badge-admin { background: #dc3545; }
 
 /* Landing page */
@@ -275,12 +284,42 @@ table.dataTable thead th {
 @media (max-width: 992px) {
     .sidebar {
         transform: translateX(-100%);
+        z-index: 1045;
     }
     .sidebar.show {
         transform: translateX(0);
+        box-shadow: 0 0 40px rgba(0,0,0,0.4);
     }
     .main-content {
         margin-left: 0;
+    }
+    /* dim backdrop when the mobile sidebar is open */
+    .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 1044;
+    }
+}
+
+@media (max-width: 768px) {
+    .top-navbar {
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+        padding: 0.6rem 1rem;
+    }
+    .top-navbar > div {
+        flex-wrap: wrap;
+        gap: 0.5rem !important;
+    }
+    .top-navbar h5 {
+        font-size: 1rem;
+    }
+    .content-area {
+        padding: 1rem;
+    }
+    .stat-card .stat-value {
+        font-size: 1.4rem;
     }
 }
 

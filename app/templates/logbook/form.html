@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{{ t('logbook.title') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('logbook.add') if title == 'add' else t('logbook.edit') }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-journal-plus me-2"></i>{{ t('logbook.entry') }}</div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if entry.booking_id %}<input type="hidden" name="booking_id" value="{{ entry.booking_id }}">{% endif %}
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('table.student') }}</label>
+                            <select name="student_id" class="form-select" required>
+                                <option value="">—</option>
+                                {% for s in students %}
+                                <option value="{{ s.id }}" {{ 'selected' if entry.student_id == s.id }}>{{ s.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('table.date') }}</label>
+                            <input type="date" name="flight_date" class="form-control"
+                                   value="{{ entry.flight_date.isoformat() if entry.flight_date }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('sched.hour_type') }}</label>
+                            <select name="hour_type" id="hourType" class="form-select">
+                                {% for ht in hour_types %}<option value="{{ ht }}" {{ 'selected' if entry.hour_type == ht }}>{{ ht }}</option>{% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">{{ t('logbook.dep_place') }}</label>
+                            <input type="text" name="dep_place" class="form-control" value="{{ entry.dep_place or '' }}" placeholder="LROP">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">{{ t('logbook.dep_time') }}</label>
+                            <input type="time" name="dep_time" class="form-control" value="{{ entry.dep_time or '' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">{{ t('logbook.arr_place') }}</label>
+                            <input type="text" name="arr_place" class="form-control" value="{{ entry.arr_place or '' }}" placeholder="LROP">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">{{ t('logbook.arr_time') }}</label>
+                            <input type="time" name="arr_time" class="form-control" value="{{ entry.arr_time or '' }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('table.aircraft') }}</label>
+                            <select name="aircraft_id" class="form-select">
+                                <option value="">—</option>
+                                {% for a in aircraft %}
+                                <option value="{{ a.id }}" {{ 'selected' if entry.aircraft_id == a.id }}>{{ a.registration }} · {{ a.model }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('table.instructor') }}</label>
+                            <select name="instructor_id" class="form-select">
+                                <option value="">—</option>
+                                {% for i in instructors %}
+                                <option value="{{ i.id }}" {{ 'selected' if entry.instructor_id == i.id }}>{{ i.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">{{ t('logbook.total') }} <span class="text-muted small">(h:mm)</span></label>
+                            <input type="text" name="total_time" id="totalTime" class="form-control bg-light"
+                                   value="{{ (entry.total_time or 0)|hm }}" readonly>
+                            <div class="form-text small">{{ t('logbook.total_auto') }}</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">{{ t('logbook.dual') }} <span class="text-muted small">(h:mm)</span></label>
+                            <input type="text" name="dual_time" class="form-control" value="{{ (entry.dual_time or 0)|hm }}"
+                                   placeholder="0:00" pattern="[0-9]{1,2}:[0-5][0-9]">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">{{ t('logbook.pic') }} <span class="text-muted small">(h:mm)</span></label>
+                            <input type="text" name="pic_time" class="form-control" value="{{ (entry.pic_time or 0)|hm }}"
+                                   placeholder="0:00" pattern="[0-9]{1,2}:[0-5][0-9]">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">{{ t('logbook.ldg_day') }}</label>
+                            <input type="number" min="0" name="landings_day" class="form-control" value="{{ entry.landings_day or 0 }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">{{ t('logbook.ldg_night') }}</label>
+                            <input type="number" min="0" name="landings_night" class="form-control" value="{{ entry.landings_night or 0 }}">
+                        </div>
+
+                        <!-- PPL-A exercises (multi-select), shown only for PPL-A -->
+                        <div class="col-12" id="exerciseBlock">
+                            <label class="form-label fw-semibold">{{ t('logbook.exercises') }} <span class="text-muted small">(EASA PPL(A))</span></label>
+                            <div class="row g-1">
+                                {% for code, label in exercises %}
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="exercises" value="{{ code }}"
+                                               id="ex{{ code }}" {{ 'checked' if code in selected_ex }}>
+                                        <label class="form-check-label small" for="ex{{ code }}"><strong>{{ code }}</strong> · {{ label }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('logbook.remarks') }}</label>
+                            <textarea name="remarks" class="form-control" rows="2">{{ entry.remarks or '' }}</textarea>
+                        </div>
+
+                        <div class="col-12 d-flex gap-2">
+                            <button type="submit" class="btn btn-av-primary"><i class="bi bi-check-circle me-1"></i>{{ t('form.save') }}</button>
+                            <a href="{{ url_for('logbook.index') }}" class="btn btn-outline-secondary">{{ t('form.cancel') }}</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Exercises only relevant for PPL-A
+const hourType = document.getElementById('hourType');
+const exBlock = document.getElementById('exerciseBlock');
+function toggleEx() { exBlock.style.display = (hourType.value === 'PPL-A') ? '' : 'none'; }
+hourType.addEventListener('change', toggleEx);
+toggleEx();
+
+// Total flight time = arrival − departure (auto-calculated)
+const depTime = document.querySelector('[name=dep_time]');
+const arrTime = document.querySelector('[name=arr_time]');
+const totalTime = document.getElementById('totalTime');
+function calcTotal() {
+    if (!depTime.value || !arrTime.value) return;
+    const [dh, dm] = depTime.value.split(':').map(Number);
+    const [ah, am] = arrTime.value.split(':').map(Number);
+    let mins = (ah * 60 + am) - (dh * 60 + dm);
+    if (mins < 0) mins += 24 * 60;   // flight crosses midnight
+    totalTime.value = Math.floor(mins / 60) + ':' + String(mins % 60).padStart(2, '0');
+}
+depTime.addEventListener('change', calcTotal);
+arrTime.addEventListener('change', calcTotal);
+calcTotal();
+</script>
+{% endblock %}

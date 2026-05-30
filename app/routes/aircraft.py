@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_required, current_user
+from sqlalchemy.exc import IntegrityError
 from app import db
-from app.models import Aircraft
+from app.models import Aircraft, Booking
 from app.forms import AircraftForm
 
 bp = Blueprint('aircraft', __name__, url_prefix='/aircraft')
@@ -87,8 +88,22 @@ def delete(aircraft_id):
         return redirect(url_for('aircraft.list_aircraft'))
 
     ac = db.session.get(Aircraft, aircraft_id)
-    if ac:
+    if not ac:
+        flash('Aircraft not found.', 'danger')
+        return redirect(url_for('aircraft.list_aircraft'))
+
+    # An aircraft with flights on record can't be hard-deleted (foreign keys).
+    booking_count = Booking.query.filter_by(aircraft_id=ac.id).count()
+    if booking_count:
+        flash(f'Cannot delete {ac.registration}: it has {booking_count} flight(s) on record. '
+              f'Mark it as unavailable instead, or remove those flights first.', 'warning')
+        return redirect(url_for('aircraft.list_aircraft'))
+
+    try:
         db.session.delete(ac)
         db.session.commit()
         flash('Aircraft deleted.', 'success')
+    except IntegrityError:
+        db.session.rollback()
+        flash(f'Cannot delete {ac.registration} — it is still referenced by other records.', 'danger')
     return redirect(url_for('aircraft.list_aircraft'))

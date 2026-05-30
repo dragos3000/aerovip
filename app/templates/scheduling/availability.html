@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}{{ t('sched.submit_availability') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('sched.submit_availability') }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .avail-grid { border-collapse: collapse; width: 100%; user-select: none; }
+    .avail-grid th, .avail-grid td { border: 1px solid #e3e6ea; text-align: center; }
+    .avail-grid th { background: #f8f9fa; font-size: .8rem; padding: 6px 4px; }
+    .avail-grid th .dow { font-weight: 600; }
+    .avail-grid th .dt { color: #888; font-weight: 400; font-size: .72rem; }
+    .avail-grid td.hour-label { background: #f8f9fa; color: #666; font-size: .75rem; width: 56px; padding: 2px 6px; }
+    .avail-grid td.cell { height: 26px; cursor: pointer; background: #fff; transition: background .05s; }
+    .avail-grid td.cell:hover { background: #eef4ff; }
+    .avail-grid td.cell.on { background: #0d6efd; }
+    .avail-grid td.cell.on:hover { background: #0b5ed7; }
+    .req-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span>
+                    <i class="bi bi-calendar-week me-2"></i>{{ t('sched.week') }} {{ week.iso_week }}
+                    <small class="text-muted">· {{ week.label }}</small>
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ url_for('scheduling.availability', week=week.prev_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+                    <select class="form-select form-select-sm" style="width:auto" onchange="location.href='{{ url_for('scheduling.availability') }}?week='+this.value">
+                        {% set found = namespace(v=false) %}
+                        {% for w in upcoming_weeks %}
+                            {% if w.key == week.key %}{% set found.v = true %}{% endif %}
+                            <option value="{{ w.key }}" {% if w.key == week.key %}selected{% endif %}>{{ t('sched.week') }} {{ w.iso_week }} · {{ w.label }}</option>
+                        {% endfor %}
+                        {% if not found.v %}
+                            <option value="{{ week.key }}" selected>{{ t('sched.week') }} {{ week.iso_week }} · {{ week.label }}</option>
+                        {% endif %}
+                    </select>
+                    <a href="{{ url_for('scheduling.availability', week=week.next_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-2"><i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}</p>
+                <div class="table-responsive">
+                    <table class="avail-grid">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                {% for d in week.days %}
+                                <th><span class="dow">{{ t('day.' + week.day_names[loop.index0]|lower) }}</span><br><span class="dt">{{ d.strftime('%b %-d') }}</span></th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in hours %}
+                            <tr>
+                                <td class="hour-label">{{ '%02d:00'|format(h) }}</td>
+                                {% for d in week.days %}
+                                <td class="cell" data-date="{{ d.isoformat() }}" data-hour="{{ h }}"></td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-clock-history me-2"></i>{{ t('sched.hours_wanted') }}</div>
+            <div class="card-body">
+                <div id="requests"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="addReq"><i class="bi bi-plus"></i> {{ t('sched.add_request') }}</button>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-chat-left-text me-2"></i>{{ t('form.notes') }}</div>
+            <div class="card-body">
+                <textarea id="notes" class="form-control" rows="3" placeholder="{{ t('sched.notes_ph') }}">{{ notes }}</textarea>
+            </div>
+        </div>
+        <button type="button" class="btn btn-av-primary w-100" id="saveBtn">
+            <i class="bi bi-check2-circle me-1"></i>{{ t('sched.save_availability') }}
+        </button>
+        <div id="saveMsg" class="small mt-2"></div>
+    </div>
+</div>
+
+<template id="reqTemplate">
+    <div class="req-row">
+        <select class="form-select form-select-sm req-type">
+            {% for ht in hour_types %}<option value="{{ ht }}">{{ ht }}</option>{% endfor %}
+        </select>
+        <input type="number" class="form-control form-control-sm req-hours" min="0.5" step="0.5" value="1" style="width:90px">
+        <span class="text-muted small">h</span>
+        <button type="button" class="btn btn-sm btn-outline-danger req-del"><i class="bi bi-x"></i></button>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const WEEK_KEY = {{ week.key|tojson }};
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+const existingSlots = new Set({{ existing_slots|tojson }});
+const existingRequests = {{ existing_requests|tojson }};
+
+// ----- Grid painting -----
+const cells = document.querySelectorAll('td.cell');
+cells.forEach(c => {
+    const key = c.dataset.date + '|' + c.dataset.hour;
+    if (existingSlots.has(key)) c.classList.add('on');
+});
+
+let painting = false, paintOn = true;
+function setCell(c) { c.classList.toggle('on', paintOn); }
+
+cells.forEach(c => {
+    c.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        painting = true;
+        paintOn = !c.classList.contains('on');
+        setCell(c);
+    });
+    c.addEventListener('pointerenter', () => { if (painting) setCell(c); });
+});
+document.addEventListener('pointerup', () => { painting = false; });
+
+// ----- Flight requests -----
+const reqContainer = document.getElementById('requests');
+const reqTpl = document.getElementById('reqTemplate');
+function addRequest(type, hours) {
+    const node = reqTpl.content.cloneNode(true);
+    if (type) node.querySelector('.req-type').value = type;
+    if (hours != null) node.querySelector('.req-hours').value = hours;
+    node.querySelector('.req-del').addEventListener('click', e => e.target.closest('.req-row').remove());
+    reqContainer.appendChild(node);
+}
+document.getElementById('addReq').addEventListener('click', () => addRequest());
+existingRequests.forEach(r => addRequest(r.hour_type, r.hours));
+if (existingRequests.length === 0) addRequest();
+
+// ----- Save -----
+document.getElementById('saveBtn').addEventListener('click', () => {
+    const slots = [];
+    document.querySelectorAll('td.cell.on').forEach(c => {
+        slots.push({ date: c.dataset.date, hour: parseInt(c.dataset.hour, 10) });
+    });
+    const requests = [];
+    document.querySelectorAll('.req-row').forEach(row => {
+        const hours = parseFloat(row.querySelector('.req-hours').value);
+        if (hours > 0) requests.push({ hour_type: row.querySelector('.req-type').value, hours: hours });
+    });
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = '';
+    fetch('{{ url_for("scheduling.save_availability") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ week: WEEK_KEY, slots, requests, notes: document.getElementById('notes').value })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.ok) {
+            msg.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>{{ t("sched.saved") }} (' + d.slot_count + ' h)</span>';
+        } else {
+            msg.innerHTML = '<span class="text-danger">' + (d.error || 'Error') + '</span>';
+        }
+    })
+    .catch(() => { msg.innerHTML = '<span class="text-danger">Network error</span>'; });
+});
+</script>
+{% endblock %}

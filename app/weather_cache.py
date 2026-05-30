@@ -55,6 +55,18 @@ def _write_cache(data):
     os.replace(tmp, CACHE_FILE)
 
 
+def _cache_age_seconds():
+    """Age of the persisted cache in seconds, or None if missing/unreadable."""
+    c = _read_cache()
+    if not c or not c.get('cached_at'):
+        return None
+    try:
+        dt = datetime.fromisoformat(c['cached_at'].rstrip('Z'))
+        return (datetime.utcnow() - dt).total_seconds()
+    except (ValueError, TypeError):
+        return None
+
+
 # ── Fetch functions (run in background thread) ───────────────────
 def _fetch_weather(api_key, icao):
     result = {'metar': None, 'taf': None, 'station': icao, 'fallback': False, 'error': None}
@@ -181,6 +193,15 @@ def _refresh_loop(app):
             lock_fd = open(LOCK_FILE, 'w')
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
+            # Don't burn API calls on restart if the cache is still fresh (< 1h old).
+            age = _cache_age_seconds()
+            if age is not None and age < REFRESH_SECONDS:
+                logger.info('Weather cache: still fresh (%.0fs old) — skipping API call', age)
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                lock_fd.close()
+                time.sleep(max(60, REFRESH_SECONDS - age))
+                continue
+
             with app.app_context():
                 from app.models import Setting
                 api_key = Setting.get('checkwx_api_key', '') or app.config.get('CHECKWX_API_KEY', '')
@@ -215,6 +236,24 @@ def _refresh_loop(app):
                     pass
 
         time.sleep(REFRESH_SECONDS)
+
+
+def refresh_now():
+    """Force an immediate cache refresh with current settings (e.g. after the API key changes).
+    Must be called within an app context. Returns True on success."""
+    from flask import current_app
+    from app.models import Setting
+    try:
+        api_key = Setting.get('checkwx_api_key', '') or current_app.config.get('CHECKWX_API_KEY', '')
+        icao = Setting.get('icao_airport', '') or current_app.config.get('ICAO_AIRPORT', 'LRBS')
+        weather = _fetch_weather(api_key, icao)
+        notams = _fetch_notams(icao)
+        _write_cache({'weather': weather, 'notams': notams,
+                      'cached_at': datetime.utcnow().isoformat() + 'Z'})
+        return True
+    except Exception:
+        logger.exception('Weather cache: forced refresh failed')
+        return False
 
 
 def start_background_refresh(app):

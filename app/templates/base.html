@@ -3,14 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Aero Vip Academy{% endblock %}</title>
+    <!-- Favicon (generated from the logo) -->
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon-180.png') }}">
+    <!-- PWA: installable app -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+    <meta name="theme-color" content="#0a1628">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Aero Vip">
+    <script>
+        // Register our own service worker (network-first for pages, so no stale HTML).
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js').catch(function (e) {
+                    console.warn('Service worker registration failed', e);
+                });
+            });
+        }
+    </script>
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <!-- DataTables -->
     <link href="https://cdn.datatables.net/1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <link href="https://cdn.datatables.net/responsive/2.5.1/css/responsive.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
     <!-- Inter font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
@@ -32,19 +55,30 @@
                     <i class="bi bi-speedometer2"></i> {{ t('nav.dashboard') }}
                 </a>
             </li>
+            {% if current_user.is_planner %}
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint and 'scheduling' in request.endpoint %}active{% endif %}" href="{{ url_for('scheduling.calendar') }}">
-                    <i class="bi bi-calendar3"></i> {{ t('nav.schedule') }}
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('scheduling.plan') or request.endpoint in ('scheduling.assign', 'scheduling.delete_booking') %}active{% endif %}" href="{{ url_for('scheduling.plan') }}">
+                    <i class="bi bi-kanban"></i> {{ t('nav.planning_board') }}
                 </a>
             </li>
+            {% endif %}
+            {% if current_user.role == 'student' %}
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'scheduling.book' %}active{% endif %}" href="{{ url_for('scheduling.book') }}">
-                    <i class="bi bi-plus-circle"></i> {{ t('nav.book_flight') }}
+                <a class="nav-link {% if request.endpoint in ('scheduling.availability', 'scheduling.save_availability') %}active{% endif %}" href="{{ url_for('scheduling.availability') }}">
+                    <i class="bi bi-calendar-plus"></i> {{ t('nav.submit_availability') }}
                 </a>
             </li>
+            {% endif %}
+            {% if current_user.role in ('student', 'instructor') %}
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'scheduling.my_bookings' %}active{% endif %}" href="{{ url_for('scheduling.my_bookings') }}">
-                    <i class="bi bi-journal-check"></i> {{ t('nav.my_bookings') }}
+                <a class="nav-link {% if request.endpoint == 'scheduling.my_schedule' %}active{% endif %}" href="{{ url_for('scheduling.my_schedule') }}">
+                    <i class="bi bi-calendar2-check"></i> {{ t('nav.my_schedule') }}
+                </a>
+            </li>
+            {% endif %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('logbook.') %}active{% endif %}" href="{{ url_for('logbook.index') }}">
+                    <i class="bi bi-journal-richtext"></i> {{ t('nav.logbook') }}
                 </a>
             </li>
         </ul>
@@ -79,9 +113,27 @@
         </ul>
         {% endif %}
 
-        <div class="sidebar-user mt-auto">
-            <div class="user-name">{{ current_user.full_name }}</div>
-            <div class="user-role">{{ t('role.' + current_user.role) }}</div>
+        <div class="mt-auto">
+            <!-- Controls live in the menu on mobile (hidden in the top bar there) -->
+            <div class="sidebar-controls d-lg-none px-3 pb-2">
+                <div class="d-flex gap-2 mb-2">
+                    <div class="btn-group btn-group-sm w-100" role="group">
+                        <a href="{{ url_for('main.set_tz', mode='lt') }}" class="btn {{ 'btn-primary' if tz_mode == 'lt' else 'btn-outline-light' }}">LT</a>
+                        <a href="{{ url_for('main.set_tz', mode='utc') }}" class="btn {{ 'btn-primary' if tz_mode == 'utc' else 'btn-outline-light' }}">UTC</a>
+                    </div>
+                    <div class="btn-group btn-group-sm w-100" role="group">
+                        <a href="{{ url_for('main.set_language', lang='ro') }}" class="btn {{ 'btn-primary' if current_lang == 'ro' else 'btn-outline-light' }}">RO</a>
+                        <a href="{{ url_for('main.set_language', lang='en') }}" class="btn {{ 'btn-primary' if current_lang == 'en' else 'btn-outline-light' }}">EN</a>
+                    </div>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light w-100">
+                    <i class="bi bi-box-arrow-right me-1"></i>{{ t('nav.logout') }}
+                </a>
+            </div>
+            <div class="sidebar-user">
+                <div class="user-name">{{ current_user.full_name }}</div>
+                <div class="user-role">{{ t('role.' + current_user.role) }}</div>
+            </div>
         </div>
     </nav>
 
@@ -94,7 +146,14 @@
                 </button>
                 <h5 class="mb-0 fw-bold">{% block page_title %}{{ t('nav.dashboard') }}{% endblock %}</h5>
             </div>
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-none d-lg-flex align-items-center gap-3">
+                <!-- Time zone selector -->
+                <div class="btn-group btn-group-sm" role="group" title="Local time / UTC">
+                    <a href="{{ url_for('main.set_tz', mode='lt') }}"
+                       class="btn {{ 'btn-primary' if tz_mode == 'lt' else 'btn-outline-secondary' }}">LT</a>
+                    <a href="{{ url_for('main.set_tz', mode='utc') }}"
+                       class="btn {{ 'btn-primary' if tz_mode == 'utc' else 'btn-outline-secondary' }}">UTC</a>
+                </div>
                 <!-- Language Selector -->
                 <div class="btn-group btn-group-sm" role="group">
                     <a href="{{ url_for('main.set_language', lang='ro') }}"
@@ -133,13 +192,34 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.11/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.11/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.1/js/dataTables.responsive.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.1/js/responsive.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
     <script>
-        // Sidebar toggle for mobile
-        document.getElementById('sidebarToggle')?.addEventListener('click', function() {
-            document.getElementById('sidebar').classList.toggle('show');
-        });
+        // Sidebar toggle for mobile (with dimmed backdrop)
+        (function () {
+            var sidebar = document.getElementById('sidebar');
+            var toggle = document.getElementById('sidebarToggle');
+            if (!sidebar || !toggle) return;
+            var backdrop = null;
+            function close() {
+                sidebar.classList.remove('show');
+                if (backdrop) { backdrop.remove(); backdrop = null; }
+            }
+            function open() {
+                sidebar.classList.add('show');
+                backdrop = document.createElement('div');
+                backdrop.className = 'sidebar-backdrop';
+                backdrop.addEventListener('click', close);
+                document.body.appendChild(backdrop);
+            }
+            toggle.addEventListener('click', function () {
+                sidebar.classList.contains('show') ? close() : open();
+            });
+            // close when a nav link is tapped
+            sidebar.querySelectorAll('a.nav-link').forEach(function (a) {
+                a.addEventListener('click', close);
+            });
+        })();
     </script>
     {% block extra_js %}{% endblock %}
 </body>

@@ -24,12 +24,12 @@
                 {% for b in bookings %}
                 <tr>
                     <td>{{ b.id }}</td>
-                    <td data-order="{{ b.start_time.strftime('%Y%m%d') }}">{{ b.start_time.strftime('%b %d, %Y') }}</td>
-                    <td>{{ b.start_time.strftime('%H:%M') }} - {{ b.end_time.strftime('%H:%M') }}</td>
+                    <td data-order="{{ b.start_time.strftime('%Y%m%d') }}">{{ disp(b.start_time, '%b %d, %Y') }}</td>
+                    <td>{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
                     <td>{{ b.student.full_name }}</td>
                     <td>{{ b.instructor.full_name }}</td>
                     <td><strong>{{ b.aircraft.registration }}</strong></td>
-                    <td><span class="badge bg-primary">{{ t('flight.' + b.flight_type) }}</span></td>
+                    <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
                     <td>
                         {% if b.status == 'confirmed' %}
                         <span class="badge bg-success">{{ t('status.confirmed') }}</span>

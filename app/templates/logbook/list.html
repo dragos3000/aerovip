@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ t('logbook.title') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('logbook.title') }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-journal-richtext me-2"></i>{{ t('logbook.title') }}</span>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <form method="GET" class="d-flex flex-wrap gap-2 align-items-center">
+                {% if students %}
+                <select name="student_id" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="">{{ t('logbook.all_students') }}</option>
+                    {% for s in students %}
+                    <option value="{{ s.id }}" {{ 'selected' if selected_student == s.id }}>{{ s.full_name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+                <select name="period" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                    <option value="all"   {{ 'selected' if selected_period == 'all' }}>{{ t('logbook.all_time') }}</option>
+                    <option value="month" {{ 'selected' if selected_period == 'month' }}>{{ t('logbook.this_month') }}</option>
+                    <option value="30d"   {{ 'selected' if selected_period == '30d' }}>{{ t('logbook.last_30') }}</option>
+                    <option value="90d"   {{ 'selected' if selected_period == '90d' }}>{{ t('logbook.last_90') }}</option>
+                    <option value="year"  {{ 'selected' if selected_period == 'year' }}>{{ t('logbook.this_year') }}</option>
+                </select>
+            </form>
+            {% if can_edit %}
+            <a href="{{ url_for('logbook.add') }}" class="btn btn-sm btn-av-primary">
+                <i class="bi bi-plus"></i> {{ t('logbook.add') }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Totals -->
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <span class="badge bg-secondary">{{ entries|length }} {{ t('logbook.flights') }}</span>
+            <span class="badge bg-primary">{{ t('logbook.total') }}: {{ totals.total|hm }}</span>
+            <span class="badge bg-info text-dark">{{ t('logbook.dual') }}: {{ totals.dual|hm }}</span>
+            <span class="badge bg-success">{{ t('logbook.pic') }}: {{ totals.pic|hm }}</span>
+            <span class="badge bg-dark">{{ t('logbook.ldg') }}: {{ totals.ldg_day }}/{{ totals.ldg_night }}</span>
+        </div>
+
+        <table id="logbookTable" class="table table-striped dt-responsive nowrap w-100">
+            <thead>
+                <tr>
+                    <th>{{ t('table.date') }}</th>
+                    {% if current_user.role != 'student' %}<th>{{ t('table.student') }}</th>{% endif %}
+                    <th>{{ t('logbook.dep') }}</th>
+                    <th>{{ t('logbook.arr') }}</th>
+                    <th>{{ t('table.aircraft') }}</th>
+                    <th>{{ t('sched.hour_type') }}</th>
+                    <th>{{ t('logbook.total') }}</th>
+                    <th>{{ t('logbook.dual') }}</th>
+                    <th>{{ t('logbook.pic') }}</th>
+                    <th>{{ t('logbook.ldg') }}</th>
+                    <th>{{ t('table.instructor') }}</th>
+                    <th class="no-sort">{{ t('logbook.exercises') }}</th>
+                    <th>{{ t('logbook.remarks') }}</th>
+                    {% if can_edit %}<th class="no-sort"></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in entries %}
+                <tr>
+                    <td>{{ e.flight_date.strftime('%Y-%m-%d') }}</td>
+                    {% if current_user.role != 'student' %}<td>{{ e.student.full_name if e.student else '' }}</td>{% endif %}
+                    <td>{{ e.dep_place or '' }} {{ e.dep_time or '' }}</td>
+                    <td>{{ e.arr_place or '' }} {{ e.arr_time or '' }}</td>
+                    <td>
+                        {% if e.aircraft %}<strong>{{ e.aircraft.registration }}</strong>
+                        <div class="text-muted" style="font-size:.72rem">{{ e.aircraft.model }}</div>{% endif %}
+                    </td>
+                    <td><span class="badge bg-primary">{{ e.hour_type }}</span></td>
+                    <td data-order="{{ e.total_time or 0 }}">{{ (e.total_time or 0)|hm }}</td>
+                    <td data-order="{{ e.dual_time or 0 }}">{{ (e.dual_time or 0)|hm }}</td>
+                    <td data-order="{{ e.pic_time or 0 }}">{{ (e.pic_time or 0)|hm }}</td>
+                    <td>{{ e.landings_day or 0 }}/{{ e.landings_night or 0 }}</td>
+                    <td>{{ e.instructor.full_name if e.instructor else '' }}</td>
+                    <td>
+                        {% for code in e.exercise_codes %}<span class="badge bg-light text-dark border me-1" style="cursor:help" tabindex="0" data-bs-toggle="tooltip" title="{{ code }} · {{ exercise_labels.get(code, '') }}">{{ code }}</span>{% endfor %}
+                    </td>
+                    <td class="small text-muted">{{ e.remarks or '' }}</td>
+                    {% if can_edit %}
+                    <td class="text-nowrap">
+                        <a href="{{ url_for('logbook.edit', entry_id=e.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <form method="POST" action="{{ url_for('logbook.delete', entry_id=e.id) }}" class="d-inline"
+                              onsubmit="return confirm('{{ t('logbook.confirm_delete') }}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(function () {
+    var table = $('#logbookTable').DataTable({
+        responsive: true,
+        order: [[0, 'desc']],
+        pageLength: 25,
+        columnDefs: [{ orderable: false, targets: 'no-sort' }],
+        language: { search: '', searchPlaceholder: '{{ t('logbook.search') }}' }
+    });
+
+    function initTips() {
+        document.querySelectorAll('#logbookTable [data-bs-toggle="tooltip"], .child [data-bs-toggle="tooltip"]').forEach(function (el) {
+            if (!bootstrap.Tooltip.getInstance(el)) new bootstrap.Tooltip(el);
+        });
+    }
+    table.on('draw', initTips);
+    table.on('responsive-display', function () { initTips(); });
+    initTips();
+});
+</script>
+{% endblock %}

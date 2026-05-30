@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import requests
 from app.models import Booking, User, Aircraft, Setting
 from app.weather_cache import get_cached_weather, get_cached_notams
+from app.airfield import get_airfield_info, get_airfield_map_url
 
 bp = Blueprint('main', __name__)
 
@@ -18,6 +19,23 @@ def set_language(lang):
     if lang in ('en', 'ro'):
         session['lang'] = lang
     return redirect(request.referrer or '/')
+
+
+@bp.route('/tz/<mode>')
+def set_tz(mode):
+    if mode in ('lt', 'utc'):
+        session['tz'] = mode
+    return redirect(request.referrer or '/')
+
+
+@bp.route('/sw.js')
+def service_worker():
+    """Serve the PWA service worker from the root so its scope covers the whole app."""
+    resp = current_app.send_static_file('sw.js')
+    resp.headers['Content-Type'] = 'application/javascript'
+    resp.headers['Service-Worker-Allowed'] = '/'
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @bp.route('/dashboard')
@@ -62,7 +80,9 @@ def dashboard():
                            total_students=total_students,
                            total_aircraft=total_aircraft,
                            total_instructors=total_instructors,
-                           icao_airport=icao)
+                           icao_airport=icao,
+                           airfield_info=get_airfield_info(),
+                           airfield_map_url=get_airfield_map_url(session.get('lang', 'ro')))
 
 
 @bp.route('/api/airfield-weather')

@@ -4,6 +4,7 @@ from functools import wraps
 from app import db
 from app.models import User, Booking, Aircraft, Setting
 from app.forms import UserEditForm, SettingsForm
+from app.airfield import get_airfield_info, save_airfield_info, get_airfield_map_url
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -84,6 +85,10 @@ def settings():
                      'ICAO airport code for weather/NOTAMs')
         Setting.set('airfield_weather_url', form.airfield_weather_url.data.strip(),
                      'Airfield weather station JSON URL')
+        save_airfield_info(request.form)
+        # Apply the new weather config immediately instead of waiting for the hourly refresh.
+        from app.weather_cache import refresh_now
+        refresh_now()
         flash('Settings saved successfully.', 'success')
         return redirect(url_for('admin.settings'))
 
@@ -92,4 +97,7 @@ def settings():
     form.icao_airport.data = Setting.get('icao_airport', 'LRBS')
     form.airfield_weather_url.data = Setting.get('airfield_weather_url', '')
 
-    return render_template('admin/settings.html', form=form)
+    return render_template('admin/settings.html', form=form,
+                           airfield_info=get_airfield_info(),
+                           airfield_map_url=get_airfield_map_url('ro'),
+                           airfield_map_url_en=get_airfield_map_url('en'))

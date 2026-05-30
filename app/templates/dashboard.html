@@ -65,9 +65,15 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-calendar3 me-2"></i>{{ t('dash.upcoming_flights') }}</span>
-                <a href="{{ url_for('scheduling.book') }}" class="btn btn-sm btn-av-primary">
-                    <i class="bi bi-plus"></i> {{ t('misc.book') }}
+                {% if current_user.is_planner %}
+                <a href="{{ url_for('scheduling.plan') }}" class="btn btn-sm btn-av-primary">
+                    <i class="bi bi-kanban"></i> {{ t('nav.planning_board') }}
                 </a>
+                {% elif current_user.role == 'student' %}
+                <a href="{{ url_for('scheduling.availability') }}" class="btn btn-sm btn-av-primary">
+                    <i class="bi bi-calendar-plus"></i> {{ t('nav.submit_availability') }}
+                </a>
+                {% endif %}
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -77,26 +83,18 @@
                                 <th>{{ t('table.date') }}</th>
                                 <th>{{ t('table.time') }}</th>
                                 <th>{{ t('table.aircraft') }}</th>
+                                <th>{% if current_user.role == 'instructor' %}{{ t('table.student') }}{% else %}{{ t('table.instructor') }}{% endif %}</th>
                                 <th>{{ t('table.type') }}</th>
-                                <th>{{ t('table.status') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for b in bookings %}
                             <tr>
-                                <td>{{ b.start_time.strftime('%b %d, %Y') }}</td>
-                                <td>{{ b.start_time.strftime('%H:%M') }} - {{ b.end_time.strftime('%H:%M') }}</td>
+                                <td>{{ disp(b.start_time, '%b %d, %Y') }}</td>
+                                <td>{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
                                 <td><strong>{{ b.aircraft.registration }}</strong></td>
-                                <td><span class="badge bg-primary">{{ t('flight.' + b.flight_type) }}</span></td>
-                                <td>
-                                    {% if b.status == 'confirmed' %}
-                                    <span class="badge bg-success">{{ t('status.confirmed') }}</span>
-                                    {% elif b.status == 'completed' %}
-                                    <span class="badge bg-secondary">{{ t('status.completed') }}</span>
-                                    {% else %}
-                                    <span class="badge bg-danger">{{ t('status.cancelled') }}</span>
-                                    {% endif %}
-                                </td>
+                                <td>{% if current_user.role == 'instructor' %}{{ b.student.full_name }}{% else %}{{ b.instructor.full_name }}{% endif %}</td>
+                                <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
                             </tr>
                             {% else %}
                             <tr><td colspan="5" class="text-center text-muted py-4">{{ t('dash.no_upcoming') }}</td></tr>
@@ -150,10 +148,60 @@
         </div>
     </div>
 </div>
+
+<!-- Home airfield information -->
+<div class="card mt-3">
+    <div class="card-header">
+        <i class="bi bi-geo-alt me-2"></i>{{ t('af.title') }}
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for f in airfield_info %}
+            <div class="col-md-6">
+                <div class="text-muted small text-uppercase fw-semibold" style="letter-spacing:.4px">{{ t(f.label_key) }}</div>
+                <div class="fw-semibold">
+                    {% if f.value %}
+                        {% for line in f.value.split('\n') %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if airfield_map_url %}
+<!-- Airfield map -->
+<div class="card mt-3">
+    <div class="card-header">
+        <i class="bi bi-map me-2"></i>{{ t('af.map_title') }}
+    </div>
+    <div class="card-body p-0">
+        <iframe src="{{ airfield_map_url }}" title="{{ t('af.map_title') }}"
+                style="width:100%; height:480px; border:0; display:block;"
+                loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                allowfullscreen></iframe>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Time-zone display follows the navbar LT/UTC switch
+const TZ_MODE = {{ tz_mode|tojson }};
+const TZ_NAME = TZ_MODE === 'utc' ? 'UTC' : 'Europe/Bucharest';
+const TZ_LABEL = TZ_MODE === 'utc' ? 'UTC' : 'LT';
+function clockTime(d) {
+    if (isNaN(d)) return '';
+    return d.toLocaleTimeString('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + TZ_LABEL;
+}
+function clockFull(val) {
+    const d = new Date(typeof val === 'string' ? val.replace(' ', 'T') : val);
+    if (isNaN(d)) return val + ' ' + TZ_LABEL;  // unparseable station string -> show raw + label
+    return d.toLocaleString('en-GB', { timeZone: TZ_NAME, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + TZ_LABEL;
+}
+
 // Airfield Weather Station — auto-refresh every 5 minutes
 function loadAirfieldWeather() {
     const container = document.getElementById('airfield-weather-container');
@@ -196,7 +244,7 @@ function loadAirfieldWeather() {
             html += '</div>';
 
             if (w.last_update_time) {
-                html += `<div class="text-muted text-end mt-2" style="font-size:0.7rem"><i class="bi bi-clock me-1"></i>${w.last_update_time} <span class="badge bg-success bg-opacity-25 text-success ms-1" style="font-size:0.6rem">LIVE</span></div>`;
+                html += `<div class="text-muted text-end mt-2" style="font-size:0.7rem"><i class="bi bi-clock me-1"></i>${clockFull(w.last_update_time)} <span class="badge bg-success bg-opacity-25 text-success ms-1" style="font-size:0.6rem">LIVE</span></div>`;
             }
             container.innerHTML = html;
         })
@@ -238,7 +286,7 @@ fetch('{{ url_for("main.weather") }}')
                 html += `<div class="mt-2"><span class="badge bg-${catColors[m.flight_category] || 'secondary'}">${m.flight_category}</span></div>`;
             }
             if (data.cached_at) {
-                const cachedTime = new Date(data.cached_at).toLocaleTimeString();
+                const cachedTime = clockTime(new Date(data.cached_at));
                 html += `<div class="text-muted text-end mt-2" style="font-size:0.7rem"><i class="bi bi-clock me-1"></i>{{ t('dash.cached_at') }}: ${cachedTime}</div>`;
             }
         } else {
@@ -278,6 +326,9 @@ function loadNotams() {
                 </div>`;
             });
             html += '</div>';
+            if (data.cached_at) {
+                html += `<div class="text-muted text-end mt-2" style="font-size:0.7rem"><i class="bi bi-clock me-1"></i>{{ t('dash.cached_at') }}: ${clockTime(new Date(data.cached_at))}</div>`;
+            }
             container.innerHTML = html;
         })
         .catch(() => {

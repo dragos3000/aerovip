@@ -31,6 +31,34 @@
                             {{ form.airfield_weather_url(class="form-control", placeholder="https://lrpw.ro/weather/?format=json") }}
                             <div class="form-text">{{ t('settings.airfield_url_help') }}</div>
                         </div>
+
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="fw-bold mb-0"><i class="bi bi-geo-alt me-1"></i>{{ t('settings.airfield_info') }}</h6>
+                        </div>
+                        {% for f in airfield_info %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t(f.label_key) }}</label>
+                            {% if f.multiline %}
+                            <textarea name="{{ f.key }}" class="form-control" rows="3">{{ f.value }}</textarea>
+                            {% else %}
+                            <input type="text" name="{{ f.key }}" class="form-control" value="{{ f.value }}">
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('settings.airfield_map') }} (RO)</label>
+                            <input type="text" name="airfield_map_url" class="form-control" value="{{ airfield_map_url }}"
+                                   placeholder="https://www.google.com/maps/d/embed?mid=...">
+                            <div class="form-text">{{ t('settings.airfield_map_help') }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('settings.airfield_map') }} (EN)</label>
+                            <input type="text" name="airfield_map_url_en" class="form-control" value="{{ airfield_map_url_en }}"
+                                   placeholder="https://www.google.com/maps/d/embed?mid=...">
+                            <div class="form-text">{{ t('settings.airfield_map_help_en') }}</div>
+                        </div>
+
                         <div class="col-12">
                             <button type="submit" class="btn btn-av-primary">
                                 <i class="bi bi-check-circle me-1"></i>{{ t('form.save_changes') }}

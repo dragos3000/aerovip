@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+{% block title %}{{ t('sched.planning_board') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('sched.planning_board') }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-grid { border-collapse: collapse; width: 100%; min-width: 900px; table-layout: fixed; user-select: none; }
+    .plan-grid th, .plan-grid td { border: 1px solid #e3e6ea; text-align: center; font-size: .72rem; }
+    .plan-grid th { background: #f8f9fa; padding: 4px 2px; white-space: nowrap; }
+    .plan-grid th:first-child, .plan-grid td.hour-label { width: 48px; }
+    .plan-grid td.hour-label { background: #f8f9fa; color: #888; white-space: nowrap; }
+    .plan-grid td.cell { height: 32px; background: #fff; position: relative; vertical-align: middle; padding: 1px; }
+    .plan-grid td.cell.free { cursor: pointer; }
+    .plan-grid td.cell.free:hover { background: #eef4ff; }
+    .plan-grid td.cell.avail-hl { background: #c9f0d2; box-shadow: inset 0 0 0 1px #198754; }
+    .plan-grid td.cell.avail-hl:hover { background: #aee6bd; }
+    .plan-grid td.cell.avail-dim { background: #fbfbfb; }
+    /* aggregate availability: one student available (green) vs 2+ overlapping (red) */
+    .plan-grid td.cell.avail-one { background: #d8f3df; }
+    .plan-grid td.cell.avail-one:hover { background: #c3ecce; }
+    .plan-grid td.cell.avail-multi { background: #f7c9ce; }
+    .plan-grid td.cell.avail-multi:hover { background: #f2b2b9; }
+    .plan-grid td.cell .avx { display: block; font-size: .6rem; line-height: 1.12; padding: 1px 2px; white-space: normal; word-break: break-word; pointer-events: none; }
+    .plan-grid td.cell .avx + .avx { border-top: 1px solid rgba(0,0,0,.12); }
+    .plan-grid td.cell .avx .nm { display: block; font-weight: 600; color: #1c2733; }
+    .plan-grid td.cell .avx .rq { display: block; color: #5a6b7b; font-size: .92em; }
+    /* sticky student picker bar */
+    .plan-toolbar { position: sticky; top: 54px; z-index: 6; }
+    .stu-chip { font-size: .78rem; padding: .2rem .55rem; border: 1px solid #ced4da; border-radius: 999px;
+                background: #fff; cursor: pointer; white-space: nowrap; line-height: 1.2; }
+    .stu-chip:hover { border-color: #0d6efd; }
+    .stu-chip.active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+    .stu-chip .h { opacity: .75; font-size: .7rem; }
+    .stu-chip.under { border-color: #f0a500; }
+    .stu-chip.active.under { background: #f0a500; border-color: #f0a500; }
+    .stu-chip.done { background: #e9ecef; color: #6c757d; border-color: #ced4da; }
+    .stu-chip.done .h { opacity: 1; color: #198754; }
+    .plan-grid td.cell.booked { cursor: grab; color: #fff; font-weight: 600; }
+    .plan-grid td.cell.booked:active { cursor: grabbing; }
+    .plan-grid td.cell.booked.conflict { background: #dc3545 !important; }
+    .plan-grid td.cell.drop-hover { outline: 2px dashed #0d6efd; outline-offset: -2px; background: #eef4ff; }
+    .plan-grid td.cell .chip { font-size: .62rem; line-height: 1.12; padding: 0 2px; white-space: normal; word-break: break-word; }
+    .plan-grid td.cell .chip.sub { font-weight: 400; opacity: .9; }
+    .ac-title { font-weight: 700; }
+    .legend span.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+    .avail-line { font-size: .8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <i class="bi bi-kanban me-2"></i><strong>{{ t('sched.week') }} {{ week.iso_week }}</strong>
+            <span class="text-muted">· {{ week.label }}</span>
+        </div>
+        <div class="legend small text-muted">
+            <span class="sw" style="background:#d8f3df"></span>{{ t('sched.avail_one') }}
+            <span class="sw" style="background:#f7c9ce;margin-left:8px"></span>{{ t('sched.overlap') }}
+            <span class="sw" style="background:#0d6efd;margin-left:10px"></span>PPL-A
+            <span class="sw" style="background:#198754;margin-left:8px"></span>Buildup
+            <span class="sw" style="background:#fd7e14;margin-left:8px"></span>AUPRT
+            <span class="sw" style="background:#6f42c1;margin-left:8px"></span>Night
+            <span class="sw" style="background:#dc3545;margin-left:8px"></span>{{ t('sched.conflict') }}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('scheduling.plan', week=week.prev_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+            <a href="{{ url_for('scheduling.plan', week=week.next_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+        </div>
+    </div>
+</div>
+
+<!-- Sticky student picker: click a student to paint their availability onto every grid -->
+<div class="card mb-3 plan-toolbar">
+    <div class="card-body py-2 d-flex align-items-center flex-wrap gap-2">
+        <span class="text-muted small me-1"><i class="bi bi-eye me-1"></i>{{ t('sched.highlight_avail') }}:</span>
+        <div id="stuChips" class="d-flex flex-wrap gap-2"></div>
+    </div>
+</div>
+
+<!-- Student availability / requested-hours summary -->
+<div class="card mb-3">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center" role="button" data-bs-toggle="collapse" data-bs-target="#availSummary">
+        <span><i class="bi bi-people me-2"></i>{{ t('sched.students_summary') }}</span>
+        <i class="bi bi-chevron-down"></i>
+    </div>
+    <div id="availSummary" class="collapse">
+        <div class="card-body py-2" id="summaryBody"></div>
+    </div>
+</div>
+
+<div id="board"></div>
+<div id="emptyState" class="text-center text-muted py-5 d-none">
+    <i class="bi bi-inbox fs-1 d-block mb-2"></i>{{ t('sched.no_planes') }}
+</div>
+
+<!-- Assignment modal -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-airplane me-2"></i><span id="mTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="mBookingId">
+        <div class="mb-2">
+            <label class="form-label small mb-1">{{ t('table.student') }}</label>
+            <select id="mStudent" class="form-select form-select-sm"></select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small mb-1">{{ t('table.aircraft') }}</label>
+            <select id="mAircraft" class="form-select form-select-sm"></select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small mb-1">{{ t('table.date') }}</label>
+            <select id="mDate" class="form-select form-select-sm"></select>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col">
+                <label class="form-label small mb-1">{{ t('form.start_time') }}</label>
+                <select id="mStart" class="form-select form-select-sm"></select>
+            </div>
+            <div class="col">
+                <label class="form-label small mb-1">{{ t('form.end_time') }}</label>
+                <select id="mEnd" class="form-select form-select-sm"></select>
+            </div>
+        </div>
+        <div class="alert alert-light border py-1 px-2 mb-2 avail-line" id="mAvail"></div>
+        <div class="mb-2">
+            <label class="form-label small mb-1">{{ t('sched.hour_type') }}</label>
+            <select id="mHourType" class="form-select form-select-sm">
+                {% for ht in hour_types %}<option value="{{ ht }}">{{ ht }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small mb-1">{{ t('table.instructor') }}</label>
+            <select id="mInstructor" class="form-select form-select-sm"></select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small mb-1">{{ t('form.notes') }}</label>
+            <input type="text" id="mNotes" class="form-control form-control-sm">
+        </div>
+        <div id="mMsg" class="small"></div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-danger btn-sm d-none" id="mDelete"><i class="bi bi-trash"></i> {{ t('sched.delete') }}</button>
+        <div class="ms-auto">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t('form.cancel') }}</button>
+            <button type="button" class="btn btn-av-primary btn-sm" id="mSave">{{ t('form.save') }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+const AIRCRAFT = {{ aircraft|tojson }};
+const STUDENTS = {{ students|tojson }};
+const INSTRUCTORS = {{ instructors|tojson }};
+const HOURS = {{ hours|tojson }};
+const DAYS = [{% for d in week.days %}{date:{{ d.isoformat()|tojson }}, label:{{ (t('day.'+week.day_names[loop.index0]|lower) ~ ' ' ~ d.strftime('%-d'))|tojson }}},{% endfor %}];
+const ASSIGN_URL = {{ url_for('scheduling.assign')|tojson }};
+const DELETE_TPL = {{ (url_for('scheduling.plan') ~ '/booking/0/delete')|tojson }};
+const HOUR_COLORS = { 'PPL-A': '#0d6efd', 'Buildup': '#198754', 'AUPRT': '#fd7e14', 'Night': '#6f42c1' };
+const L = {
+    assignFlight: {{ t('sched.assign_flight')|tojson }}, editFlight: {{ t('sched.edit_flight')|tojson }},
+    confirmDelete: {{ t('sched.confirm_delete')|tojson }}, outside: {{ t('sched.outside_avail')|tojson }},
+    requested: {{ t('sched.requested')|tojson }}, assigned: {{ t('sched.assigned')|tojson }},
+    available: {{ t('sched.available')|tojson }}, noAvail: {{ t('sched.no_avail_day')|tojson }},
+    left: {{ t('sched.left')|tojson }}, busy: {{ t('sched.busy')|tojson }},
+};
+
+const studentName = {}; STUDENTS.forEach(s => studentName[s.id] = s.name);
+const instrName = {}; INSTRUCTORS.forEach(i => instrName[i.id] = i.name);
+
+// ---- time display: stored values stay LOCAL; labels switch to UTC when the navbar toggle is UTC ----
+const DISP_SHIFT = {{ disp_shift }};
+function fmtH(h) { return String(h).padStart(2, '0') + ':00'; }                          // local value
+function dispH(h) { return String((((h + DISP_SHIFT) % 24) + 24) % 24).padStart(2, '0'); } // shown hour
+function dispHourStr(h) { return dispH(h) + ':00'; }
+function ranges(hours) {
+    if (!hours || !hours.length) return '';
+    const s = [...hours].sort((a, b) => a - b);
+    const out = []; let start = s[0], prev = s[0];
+    for (let i = 1; i < s.length; i++) {
+        if (s[i] === prev + 1) { prev = s[i]; continue; }
+        out.push(dispHourStr(start) + '–' + dispHourStr(prev + 1)); start = prev = s[i];
+    }
+    out.push(dispHourStr(start) + '–' + dispHourStr(prev + 1));
+    return out.join(', ');
+}
+
+// ---- conflict detection across ALL bookings ----
+const ALL = [];
+AIRCRAFT.forEach(a => a.bookings.forEach(b => ALL.push(b)));
+const conflictIds = new Set();
+for (let i = 0; i < ALL.length; i++) {
+    for (let j = i + 1; j < ALL.length; j++) {
+        const a = ALL[i], b = ALL[j];
+        if (a.date === b.date && a.start < b.end && b.start < a.end &&
+            (a.student_id === b.student_id || a.instructor_id === b.instructor_id || a.aircraft_id === b.aircraft_id)) {
+            conflictIds.add(a.id); conflictIds.add(b.id);
+        }
+    }
+}
+
+// ---- student summary ----
+(function () {
+    const body = document.getElementById('summaryBody');
+    if (!STUDENTS.length) { body.innerHTML = '<span class="text-muted small">' + {{ t('sched.no_availability')|tojson }} + '</span>'; return; }
+    body.innerHTML = STUDENTS.map(s => {
+        const reqs = s.requests.map(r => `${r.hours}h ${r.hour_type}`).join(', ') || '—';
+        const dayBits = DAYS.filter(d => s.slots_by_day[d.date])
+            .map(d => `${d.label}: ${ranges(s.slots_by_day[d.date])}`).join(' · ') || ('<span class="text-muted">' + L.noAvail + '</span>');
+        const warn = s.assigned_hours < s.requested_hours ? 'text-warning' : 'text-success';
+        return `<div class="border-bottom py-1">
+            <strong>${s.name}</strong>
+            <span class="badge bg-light text-dark border ms-1">${reqs}</span>
+            <span class="badge ${warn==='text-warning'?'bg-warning text-dark':'bg-success'} ms-1">${L.assigned} ${s.assigned_hours}h / ${s.requested_hours}h</span>
+            <div class="small text-muted">${dayBits}</div>
+        </div>`;
+    }).join('');
+})();
+
+// ---- board: one grid per aircraft ----
+const board = document.getElementById('board');
+if (!AIRCRAFT.length) document.getElementById('emptyState').classList.remove('d-none');
+
+let dragBk = null;  // shared so a flight can be dragged between aircraft grids
+
+function bookingAtCell(ac, date, hour) {
+    return ac.bookings.find(b => b.date === date &&
+        hour >= parseInt(b.start.split(':')[0], 10) && hour < parseInt(b.end.split(':')[0], 10));
+}
+
+function renderAircraft(ac) {
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+    card.innerHTML = `<div class="card-header py-2"><span class="ac-title"><i class="bi bi-airplane-engines me-2"></i>${ac.registration}</span>
+        <small class="text-muted ms-1">${ac.model}</small></div>
+        <div class="card-body p-2"><div class="table-responsive"></div></div>`;
+
+    const table = document.createElement('table');
+    table.className = 'plan-grid';
+    let html = '<thead><tr><th></th>';
+    DAYS.forEach(d => html += `<th>${d.label}</th>`);
+    html += '</tr></thead><tbody>';
+    HOURS.forEach(h => {
+        html += `<tr><td class="hour-label">${dispHourStr(h)}</td>`;
+        DAYS.forEach(d => {
+            const bk = bookingAtCell(ac, d.date, h);
+            if (bk) {
+                const isStart = parseInt(bk.start.split(':')[0], 10) === h;
+                const conf = conflictIds.has(bk.id);
+                const color = conf ? '#dc3545' : (HOUR_COLORS[bk.hour_type] || '#0d6efd');
+                const label = isStart
+                    ? `<div class="chip">${conf ? '<i class="bi bi-exclamation-triangle"></i> ' : ''}${bk.student}</div>`
+                      + `<div class="chip sub">${bk.hour_type} · ${instrName[bk.instructor_id] || bk.instructor || ''}</div>`
+                    : '';
+                html += `<td class="cell booked ${conf ? 'conflict' : ''}" draggable="true" style="background:${color}" data-booking='${JSON.stringify(bk)}'>${label}</td>`;
+            } else {
+                html += `<td class="cell free" data-date="${d.date}" data-hour="${h}"></td>`;
+            }
+        });
+        html += '</tr>';
+    });
+    html += '</tbody>';
+    table.innerHTML = html;
+    card.querySelector('.table-responsive').appendChild(table);
+
+    table.querySelectorAll('td.cell.free').forEach(td => {
+        td.addEventListener('click', () => openAssign(ac.id, td.dataset.date, parseInt(td.dataset.hour, 10)));
+        td.addEventListener('dragover', e => { if (dragBk) { e.preventDefault(); td.classList.add('drop-hover'); } });
+        td.addEventListener('dragleave', () => td.classList.remove('drop-hover'));
+        td.addEventListener('drop', e => {
+            e.preventDefault(); td.classList.remove('drop-hover');
+            if (dragBk) moveBooking(dragBk, ac.id, td.dataset.date, parseInt(td.dataset.hour, 10));
+        });
+    });
+    table.querySelectorAll('td.cell.booked').forEach(td => {
+        const bk = JSON.parse(td.dataset.booking);
+        td.addEventListener('click', () => openEdit(bk));
+        td.addEventListener('dragstart', e => { dragBk = bk; e.dataTransfer.effectAllowed = 'move'; });
+        td.addEventListener('dragend', () => { dragBk = null; });
+    });
+
+    board.appendChild(card);
+}
+AIRCRAFT.forEach(renderAircraft);
+
+// ---- availability overlay: ALL students at once (green = 1, red = 2+ overlap); a chip filters to one ----
+let selectedStudent = null;
+
+// hours where a student already has a flight -> they are busy, not "available"
+const busy = new Set();
+ALL.forEach(b => {
+    const sh = parseInt(b.start.split(':')[0], 10), eh = parseInt(b.end.split(':')[0], 10);
+    for (let h = sh; h < eh; h++) busy.add(b.student_id + '@' + b.date + '|' + h);
+});
+
+const availStudents = {};   // "date|hour" -> [studentId,...]
+const availByStudent = {};  // studentId -> Set("date|hour")
+function isFull(s) { return s.assigned_hours >= s.requested_hours - 1e-6; }
+STUDENTS.forEach(s => {
+    const set = new Set();
+    // Once a student has all their requested hours scheduled, hide their remaining availability.
+    if (!isFull(s)) {
+        Object.entries(s.slots_by_day).forEach(([d, hs]) => hs.forEach(h => {
+            const key = d + '|' + h;
+            if (busy.has(s.id + '@' + key)) return;   // already scheduled then
+            set.add(key);
+            (availStudents[key] = availStudents[key] || []).push(s.id);
+        }));
+    }
+    availByStudent[s.id] = set;
+});
+
+// "Full Name" + "2h AUPRT, 1h PPL-A" for one available student
+const studentReqStr = {};
+STUDENTS.forEach(s => { studentReqStr[s.id] = s.requests.map(r => `${r.hours}h ${r.hour_type}`).join(', '); });
+function avxFor(id) {
+    return `<span class="avx"><span class="nm">${studentName[id]}</span><span class="rq">${studentReqStr[id] || ''}</span></span>`;
+}
+
+function paintAvailability() {
+    document.querySelectorAll('td.cell.free').forEach(td => {
+        td.classList.remove('avail-hl', 'avail-dim', 'avail-one', 'avail-multi');
+        td.querySelectorAll('.avx').forEach(e => e.remove());
+        const key = td.dataset.date + '|' + td.dataset.hour;
+        const ids = availStudents[key] || [];
+        if (selectedStudent != null) {
+            if (availByStudent[selectedStudent] && availByStudent[selectedStudent].has(key)) {
+                td.classList.add('avail-hl');
+                td.insertAdjacentHTML('beforeend', avxFor(selectedStudent));
+            } else {
+                td.classList.add('avail-dim');
+            }
+            return;
+        }
+        if (ids.length === 1) {
+            td.classList.add('avail-one');
+            td.insertAdjacentHTML('beforeend', avxFor(ids[0]));
+        } else if (ids.length >= 2) {
+            td.classList.add('avail-multi');
+            td.insertAdjacentHTML('beforeend', ids.map(avxFor).join(''));
+        }
+    });
+    document.querySelectorAll('.stu-chip').forEach(c =>
+        c.classList.toggle('active', parseInt(c.dataset.id, 10) === selectedStudent));
+}
+
+(function renderChips() {
+    const box = document.getElementById('stuChips');
+    if (!STUDENTS.length) { box.innerHTML = '<span class="text-muted small">' + {{ t('sched.no_availability')|tojson }} + '</span>'; return; }
+    box.innerHTML = STUDENTS.map(s => {
+        const full = isFull(s);
+        const cls = full ? 'done' : (s.assigned_hours < s.requested_hours ? 'under' : '');
+        const icon = full ? '<i class="bi bi-check-circle-fill me-1"></i>' : '';
+        return `<button type="button" class="stu-chip ${cls}" data-id="${s.id}">${icon}${s.name} <span class="h">${s.assigned_hours}/${s.requested_hours}h</span></button>`;
+    }).join('');
+    box.querySelectorAll('.stu-chip').forEach(c => c.addEventListener('click', () => {
+        const id = parseInt(c.dataset.id, 10);
+        selectedStudent = (selectedStudent === id) ? null : id;
+        paintAvailability();
+    }));
+})();
+paintAvailability();
+
+// ---- modal ----
+const modalEl = document.getElementById('assignModal');
+const modal = new bootstrap.Modal(modalEl);
+
+function timeOptions() {
+    let opts = '';
+    HOURS.concat([HOURS[HOURS.length - 1] + 1]).forEach(h => {
+        ['00', '30'].forEach(m => {
+            const v = String(h).padStart(2, '0') + ':' + m;   // local value submitted to server
+            const d = dispH(h) + ':' + m;                       // label shown to the user
+            opts += `<option value="${v}">${d}</option>`;
+        });
+    });
+    return opts;
+}
+function fillSelect(el, items, valKey, labelFn) {
+    el.innerHTML = items.map(i => `<option value="${i[valKey]}">${labelFn(i)}</option>`).join('');
+}
+
+function updateAvail() {
+    const sid = parseInt(document.getElementById('mStudent').value, 10);
+    const date = document.getElementById('mDate').value;
+    const stu = STUDENTS.find(s => s.id === sid);
+    const el = document.getElementById('mAvail');
+    if (!stu) { el.textContent = ''; return; }
+    const hrs = stu.slots_by_day[date];
+    const remaining = Math.max(0, Math.round((stu.requested_hours - stu.assigned_hours) * 10) / 10);
+    const hoursInfo = ` · <strong>${remaining}h</strong> ${L.left} (${stu.assigned_hours}/${stu.requested_hours}h)`;
+    if (hrs && hrs.length) {
+        el.innerHTML = `<i class="bi bi-clock me-1"></i>${L.available}: <strong>${ranges(hrs)}</strong>${hoursInfo}`;
+        el.className = 'alert alert-success border py-1 px-2 mb-2 avail-line';
+    } else {
+        el.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>${L.noAvail}${hoursInfo}`;
+        el.className = 'alert alert-warning border py-1 px-2 mb-2 avail-line';
+    }
+}
+
+function prepModal() {
+    fillSelect(document.getElementById('mStudent'), STUDENTS, 'id', s => s.name);
+    fillSelect(document.getElementById('mAircraft'), AIRCRAFT, 'id', a => a.registration + ' · ' + a.model);
+    document.getElementById('mDate').innerHTML = DAYS.map(d => `<option value="${d.date}">${d.label}</option>`).join('');
+    document.getElementById('mStart').innerHTML = timeOptions();
+    document.getElementById('mEnd').innerHTML = timeOptions();
+    fillSelect(document.getElementById('mInstructor'), INSTRUCTORS, 'id', i => i.name);
+    document.getElementById('mMsg').textContent = '';
+}
+
+function ensureStudentOption(id, name) {
+    const sel = document.getElementById('mStudent');
+    if (![...sel.options].some(o => o.value == id)) {
+        sel.insertAdjacentHTML('beforeend', `<option value="${id}">${name}</option>`);
+    }
+}
+
+// Default hour type = the type the student requested (admin/manager can still change it).
+function defaultTypeFor(id) {
+    const s = STUDENTS.find(x => x.id === id);
+    return (s && s.requests && s.requests.length) ? s.requests[0].hour_type : 'PPL-A';
+}
+
+// An instructor can't be in two planes at once: disable instructors already booked at the chosen time.
+function minutesOf(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+function refreshInstructors() {
+    const date = document.getElementById('mDate').value;
+    const s = minutesOf(document.getElementById('mStart').value);
+    const e = minutesOf(document.getElementById('mEnd').value);
+    const excludeId = parseInt(document.getElementById('mBookingId').value, 10) || null;
+    const busy = new Set();
+    ALL.forEach(b => {
+        if (b.id === excludeId || b.date !== date) return;
+        if (minutesOf(b.start) < e && s < minutesOf(b.end)) busy.add(b.instructor_id);
+    });
+    const sel = document.getElementById('mInstructor');
+    [...sel.options].forEach(o => {
+        const id = parseInt(o.value, 10);
+        o.disabled = busy.has(id);
+        o.textContent = instrName[id] + (busy.has(id) ? ' — ' + L.busy : '');
+    });
+    // if the chosen instructor is now busy, jump to the first free one
+    if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) {
+        const free = [...sel.options].find(o => !o.disabled);
+        if (free) sel.value = free.value;
+    }
+}
+
+function openAssign(aircraftId, date, hour) {
+    prepModal();
+    document.getElementById('mTitle').textContent = L.assignFlight;
+    document.getElementById('mBookingId').value = '';
+    let stu = selectedStudent;
+    if (stu == null) {
+        const ids = availStudents[date + '|' + hour] || [];
+        stu = ids.length ? ids[0] : (STUDENTS.length ? STUDENTS[0].id : '');
+    }
+    if (stu !== '') document.getElementById('mStudent').value = stu;
+    document.getElementById('mAircraft').value = aircraftId;
+    document.getElementById('mDate').value = date;
+    document.getElementById('mStart').value = fmtH(hour);
+    document.getElementById('mEnd').value = fmtH(hour + 1);
+    document.getElementById('mHourType').value = defaultTypeFor(parseInt(document.getElementById('mStudent').value, 10));
+    document.getElementById('mNotes').value = '';
+    document.getElementById('mDelete').classList.add('d-none');
+    refreshInstructors();
+    updateAvail();
+    modal.show();
+}
+
+function openEdit(bk) {
+    prepModal();
+    ensureStudentOption(bk.student_id, bk.student);
+    document.getElementById('mTitle').textContent = L.editFlight;
+    document.getElementById('mBookingId').value = bk.id;
+    document.getElementById('mStudent').value = bk.student_id;
+    document.getElementById('mAircraft').value = bk.aircraft_id;
+    document.getElementById('mDate').value = bk.date;
+    document.getElementById('mStart').value = bk.start;
+    document.getElementById('mEnd').value = bk.end;
+    document.getElementById('mHourType').value = bk.hour_type;
+    document.getElementById('mNotes').value = bk.notes;
+    refreshInstructors();
+    document.getElementById('mInstructor').value = bk.instructor_id;
+    const del = document.getElementById('mDelete');
+    del.classList.remove('d-none');
+    del.onclick = () => doDelete(bk.id);
+    updateAvail();
+    modal.show();
+}
+
+document.getElementById('mStudent').addEventListener('change', () => {
+    // when the student changes, reset the hour type to their requested type
+    document.getElementById('mHourType').value = defaultTypeFor(parseInt(document.getElementById('mStudent').value, 10));
+    updateAvail();
+});
+document.getElementById('mDate').addEventListener('change', () => { updateAvail(); refreshInstructors(); });
+document.getElementById('mStart').addEventListener('change', refreshInstructors);
+document.getElementById('mEnd').addEventListener('change', refreshInstructors);
+
+function submitAssign(payload, warnEl) {
+    return fetch(ASSIGN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(payload)
+    }).then(r => r.json());
+}
+
+document.getElementById('mSave').addEventListener('click', () => {
+    const payload = {
+        student_id: document.getElementById('mStudent').value,
+        booking_id: document.getElementById('mBookingId').value || null,
+        aircraft_id: document.getElementById('mAircraft').value,
+        date: document.getElementById('mDate').value,
+        start: document.getElementById('mStart').value,
+        end: document.getElementById('mEnd').value,
+        hour_type: document.getElementById('mHourType').value,
+        instructor_id: document.getElementById('mInstructor').value,
+        notes: document.getElementById('mNotes').value,
+    };
+    const msg = document.getElementById('mMsg'); msg.textContent = '';
+    submitAssign(payload).then(d => {
+        if (d.ok) {
+            if (!d.within_availability) {
+                msg.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>' + L.outside + '</span>';
+                setTimeout(() => location.reload(), 1200);
+            } else { location.reload(); }
+        } else { msg.innerHTML = '<span class="text-danger">' + (d.error || 'Error') + '</span>'; }
+    }).catch(() => { msg.innerHTML = '<span class="text-danger">Network error</span>'; });
+});
+
+function fmtMin(mins) { const h = Math.floor(mins / 60), m = mins % 60; return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'); }
+
+function moveBooking(bk, aircraftId, date, hour) {
+    const [sh, sm] = bk.start.split(':').map(Number);
+    const [eh, em] = bk.end.split(':').map(Number);
+    const dur = (eh * 60 + em) - (sh * 60 + sm);
+    if (aircraftId === bk.aircraft_id && date === bk.date && hour * 60 === sh * 60 + sm) return;
+    const payload = {
+        student_id: bk.student_id, booking_id: bk.id, aircraft_id: aircraftId, date: date,
+        start: fmtMin(hour * 60), end: fmtMin(hour * 60 + dur),
+        hour_type: bk.hour_type, instructor_id: bk.instructor_id, notes: bk.notes,
+    };
+    submitAssign(payload).then(d => { if (d.ok) location.reload(); else alert(d.error || 'Error'); });
+}
+
+function doDelete(id) {
+    if (!confirm(L.confirmDelete)) return;
+    fetch(DELETE_TPL.replace('/booking/0/', '/booking/' + id + '/'), {
+        method: 'POST', headers: { 'X-CSRFToken': CSRF }
+    }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+}
+</script>
+{% endblock %}
