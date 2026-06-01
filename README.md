@@ -77,6 +77,10 @@ fleet management, and live airfield/weather information. Installable as a PWA.
 - **Footer**: shows `© by Start-Line <year>` and a version number (`v<n>`) derived
   from the git commit count, so it bumps on every commit (refreshed on deploy/restart).
 - **PWA**: installable, with an offline page and a network-first service worker.
+- **Push notifications** (Web Push / VAPID, no native app): opt-in from a sidebar
+  toggle; fires for **flight scheduled/changed**, **weekly plan published**, **document
+  expiry** (daily check) and **account approved**. Works on Android/desktop from the
+  browser; on iOS only when the PWA is **added to the Home Screen** (iOS 16.4+).
 - **Mobile-first**: Bootstrap 5 + DataTables Responsive (collapsing tables),
   off-canvas menu.
 
@@ -131,6 +135,10 @@ Managed via **Settings** in the web UI (admins + managers; API key / URLs are ad
 - **Airfield weather URL** — JSON endpoint for the local station (admin-only)
 - **Home airfield info** — ARP coordinates, elevation, frequencies, airspace, procedures (shown on the dashboard)
 - **Airfield map** — Google My Maps embed URL (separate RO / EN maps, admin-only)
+
+- **Push notifications (VAPID)** — run `flask --app run gen-vapid` once to generate
+  the key pair (stored in Settings); the public key + a `mailto:` contact show in the
+  admin Settings (admin-only).
 
 Settings are stored in the database (the `.env` `CHECKWX_API_KEY` is only a
 fallback). Saving triggers an immediate weather-cache refresh. Uploaded documents are

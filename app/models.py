@@ -296,3 +296,23 @@ class StudentDocument(db.Model):
 
     def __repr__(self):
         return f'<StudentDocument {self.doc_type} s{self.student_id} exp{self.expiry_date}>'
+
+
+class PushSubscription(db.Model):
+    """A Web Push subscription for a user's browser/PWA install."""
+    __tablename__ = 'push_subscriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.String(256), nullable=False)
+    auth = db.Column(db.String(128), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User')
+
+    def as_info(self):
+        return {'endpoint': self.endpoint, 'keys': {'p256dh': self.p256dh, 'auth': self.auth}}
+
+    def __repr__(self):
+        return f'<PushSubscription u{self.user_id}>'

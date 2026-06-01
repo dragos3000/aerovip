@@ -172,6 +172,27 @@ def reseed_current_next():
               f're-seeded availability for {seeded} student(s).')
 
 
+@app.cli.command('gen-vapid')
+def gen_vapid():
+    """Generate a Web Push VAPID key pair and store it in Settings."""
+    from py_vapid import Vapid01
+    from cryptography.hazmat.primitives import serialization
+    import base64
+    from app.models import Setting
+    v = Vapid01()
+    v.generate_keys()
+    priv_pem = v.private_pem().decode()
+    raw = v.public_key.public_bytes(serialization.Encoding.X962,
+                                    serialization.PublicFormat.UncompressedPoint)
+    app_key = base64.urlsafe_b64encode(raw).rstrip(b'=').decode()
+    Setting.set('vapid_private', priv_pem, 'Web Push VAPID private key (PEM)')
+    Setting.set('vapid_public', app_key, 'Web Push VAPID public key (applicationServerKey)')
+    if not Setting.get('vapid_contact', ''):
+        Setting.set('vapid_contact', 'mailto:admin@aerovip.ro', 'Web Push contact')
+    print('VAPID keys generated and stored in Settings.')
+    print('Public key:', app_key)
+
+
 @app.cli.command('seed')
 def seed():
     """Create initial admin user and sample data."""

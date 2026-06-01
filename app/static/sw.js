@@ -3,7 +3,7 @@
  * relative to the worker's own location. Navigations are ALWAYS network-first
  * (never stale HTML); only same-origin static assets are cached.
  */
-const CACHE = 'aerovip-v3';
+const CACHE = 'aerovip-v4';
 const SCOPE_URL = new URL('./', self.location);                 // e.g. https://host/aerovip/
 const STATIC_PREFIX = new URL('static/', SCOPE_URL).pathname;   // e.g. /aerovip/static/
 const OFFLINE = new URL('static/offline.html', SCOPE_URL).href;
@@ -47,4 +47,32 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => cached))
     );
   }
+});
+
+// ---- Web Push ----
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data && event.data.text() }; }
+  const title = data.title || 'Aero Vip Academy';
+  const options = {
+    body: data.body || '',
+    icon: new URL('static/img/icon-192.png', SCOPE_URL).href,
+    badge: new URL('static/img/icon-192.png', SCOPE_URL).href,
+    data: { url: data.url || SCOPE_URL.href },
+    tag: data.tag,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || SCOPE_URL.href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const c of clientList) {
+        if ('focus' in c) { c.navigate(target); return c.focus(); }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

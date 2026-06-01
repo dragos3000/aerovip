@@ -106,6 +106,20 @@
                                 <label class="form-check-label" for="{{ form.smtp_tls.id }}">{{ t('settings.smtp_tls') }}</label>
                             </div>
                         </div>
+
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="fw-bold mb-0"><i class="bi bi-bell me-1"></i>{{ t('settings.push_title') }}</h6>
+                            <div class="form-text">{{ t('settings.push_help') }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">{{ t('settings.vapid_public') }}</label>
+                            {{ form.vapid_public(class="form-control", placeholder="B...") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('settings.vapid_contact') }}</label>
+                            {{ form.vapid_contact(class="form-control", placeholder="mailto:ops@aerovip.ro") }}
+                        </div>
                         {% endif %}
 
                         <div class="col-12">

@@ -107,3 +107,6 @@ class SettingsForm(FlaskForm):
     smtp_pass = PasswordField('SMTP password', validators=[Optional(), Length(max=256)])
     smtp_from = StringField('From address', validators=[Optional(), Length(max=128)])
     smtp_tls = BooleanField('Use STARTTLS')
+    # Web Push (VAPID) — public key + contact; the private key is set via `flask gen-vapid`.
+    vapid_public = StringField('VAPID public key', validators=[Optional(), Length(max=256)])
+    vapid_contact = StringField('Push contact (mailto)', validators=[Optional(), Length(max=128)])

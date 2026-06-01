@@ -92,6 +92,9 @@ def _send_approval_email(user):
     html = render_template('email/account_approved.html', user=user, link=login_link, lang=lang)
     send_email_async(user.email, get_translation('email.approved_subject', lang), html,
                      text=get_translation('email.approved_body', lang) + '\n\n' + login_link)
+    from app import push
+    push.send_push(user.id, get_translation('push.approved_title', lang),
+                   get_translation('email.approved_body', lang), url=login_link)
 
 
 @bp.route('/users/<int:user_id>/toggle', methods=['POST'])
@@ -156,6 +159,8 @@ def settings():
                 Setting.set('smtp_pass', form.smtp_pass.data, 'SMTP password')
             Setting.set('smtp_from', (form.smtp_from.data or '').strip(), 'Email From address')
             Setting.set('smtp_tls', '1' if form.smtp_tls.data else '0', 'SMTP STARTTLS')
+            Setting.set('vapid_public', (form.vapid_public.data or '').strip(), 'Web Push VAPID public key')
+            Setting.set('vapid_contact', (form.vapid_contact.data or '').strip(), 'Web Push contact (mailto)')
         save_airfield_info(request.form)
         # Apply the new weather config soon, in the background (don't block the save on a slow API).
         from flask import current_app
@@ -180,6 +185,8 @@ def settings():
     form.smtp_user.data = Setting.get('smtp_user', '')
     form.smtp_from.data = Setting.get('smtp_from', '')
     form.smtp_tls.data = str(Setting.get('smtp_tls', '1')) in ('1', 'true', 'True', 'on')
+    form.vapid_public.data = Setting.get('vapid_public', '')
+    form.vapid_contact.data = Setting.get('vapid_contact', '')
 
     return render_template('admin/settings.html', form=form,
                            can_edit_api=can_edit_api,

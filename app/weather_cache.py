@@ -232,6 +232,13 @@ def _refresh_loop(app):
             lock_fd = open(LOCK_FILE, 'w')
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
+            # Daily document-expiry push reminder (self-guards to once per calendar day).
+            try:
+                from app import push as _push
+                _push.push_expiring_documents(app)
+            except Exception:
+                logger.exception('Document-expiry push failed')
+
             # Don't burn API calls on restart if the cache is still fresh (< 1h old).
             age = _cache_age_seconds()
             if age is not None and age < REFRESH_SECONDS:

@@ -139,6 +139,12 @@
                     <a href="{{ url_for('main.set_language', lang='ro') }}" class="{{ 'active' if current_lang == 'ro' }}">RO</a>
                     <a href="{{ url_for('main.set_language', lang='en') }}" class="{{ 'active' if current_lang == 'en' }}">EN</a>
                 </div>
+                {% if push_enabled %}
+                <button type="button" id="pushToggleBtn" class="btn btn-sm btn-outline-light w-100 mb-2 d-none">
+                    <i class="bi bi-bell me-1"></i><span id="pushToggleLabel">{{ t('push.enable') }}</span>
+                </button>
+                <div id="pushIosHint" class="text-light small mb-2 d-none" style="opacity:.7">{{ t('push.ios_hint') }}</div>
+                {% endif %}
                 <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light w-100">
                     <i class="bi bi-box-arrow-right me-1"></i>{{ t('nav.logout') }}
                 </a>
@@ -228,6 +234,62 @@
             });
         })();
     </script>
+    {% if current_user.is_authenticated and push_enabled %}
+    <script>
+    // ---- Web Push opt-in ----
+    (function () {
+        var btn = document.getElementById('pushToggleBtn');
+        if (!btn) return;
+        var supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+        var iosHint = document.getElementById('pushIosHint');
+        // iOS Safari only supports push for installed (standalone) PWAs.
+        var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+        var standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+        if (!supported || (isIOS && !standalone)) {
+            if (isIOS && !standalone && iosHint) iosHint.classList.remove('d-none');
+            return;
+        }
+        var VAPID = {{ vapid_public|tojson }};
+        var lbl = document.getElementById('pushToggleLabel');
+        var ON = {{ t('push.disable')|tojson }}, OFF = {{ t('push.enable')|tojson }};
+        function urlB64ToUint8(base64) {
+            var pad = '='.repeat((4 - base64.length % 4) % 4);
+            var b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+            var raw = atob(b64); var arr = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            return arr;
+        }
+        function setState(on) { lbl.textContent = on ? ON : OFF; btn.dataset.on = on ? '1' : '0'; }
+        btn.classList.remove('d-none');
+        navigator.serviceWorker.ready.then(function (reg) {
+            reg.pushManager.getSubscription().then(function (sub) { setState(!!sub); });
+            btn.addEventListener('click', function () {
+                if (btn.dataset.on === '1') {
+                    reg.pushManager.getSubscription().then(function (sub) {
+                        if (!sub) { setState(false); return; }
+                        var ep = sub.endpoint;
+                        sub.unsubscribe().finally(function () {
+                            fetch('{{ url_for("push.unsubscribe") }}', { method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content },
+                                body: JSON.stringify({ endpoint: ep }) }).finally(function () { setState(false); });
+                        });
+                    });
+                } else {
+                    Notification.requestPermission().then(function (perm) {
+                        if (perm !== 'granted') return;
+                        reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(VAPID) })
+                            .then(function (sub) {
+                                fetch('{{ url_for("push.subscribe") }}', { method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content },
+                                    body: JSON.stringify(sub.toJSON()) }).then(function () { setState(true); });
+                            }).catch(function (e) { console.warn('push subscribe failed', e); });
+                    });
+                }
+            });
+        });
+    })();
+    </script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>

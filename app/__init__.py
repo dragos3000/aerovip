@@ -81,6 +81,12 @@ def create_app(config_class=Config):
         return dict(app_version=app.config.get('APP_VERSION', 'dev'),
                     current_year=datetime.utcnow().year)
 
+    @app.context_processor
+    def inject_push():
+        from app.models import Setting
+        pub = Setting.get('vapid_public', '')
+        return dict(vapid_public=pub, push_enabled=bool(pub))
+
     from app.models import User
     from app.translations import get_translation
 
@@ -122,7 +128,7 @@ def create_app(config_class=Config):
         tz_suffix = ' UTC' if mode == 'utc' else ''
         return dict(tz_mode=mode, disp=disp, tz_suffix=tz_suffix)
 
-    from app.routes import auth, main, admin, scheduling, aircraft, logbook, documents
+    from app.routes import auth, main, admin, scheduling, aircraft, logbook, documents, push
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(admin.bp)
@@ -130,6 +136,7 @@ def create_app(config_class=Config):
     app.register_blueprint(aircraft.bp)
     app.register_blueprint(logbook.bp)
     app.register_blueprint(documents.bp)
+    app.register_blueprint(push.bp)
 
     # Start background weather/NOTAMs cache refresh thread
     from app.weather_cache import start_background_refresh

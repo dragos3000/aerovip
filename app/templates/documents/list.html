@@ -2,8 +2,9 @@
 {% block title %}{{ t('nav.documents') }} - Aero Vip Academy{% endblock %}
 {% block page_title %}{{ t('nav.documents') }}{% endblock %}
 
-{% macro status_badge(doc) %}
+{% macro status_cell(doc) %}
     {% set days = (doc.expiry_date - today).days %}
+    <td data-order="{{ days }}">
     {% if days < 0 %}
         <span class="badge bg-danger">{{ t('doc.expired') }}</span>
     {% elif days <= warn_days %}
@@ -11,15 +12,17 @@
     {% else %}
         <span class="badge bg-success-subtle text-success border border-success-subtle">{{ t('doc.valid') }}</span>
     {% endif %}
+    </td>
 {% endmacro %}
 
-{% macro doc_row(doc) %}
+{% macro doc_row(doc, student_name) %}
 <tr>
+    {% if student_name is not none %}<td>{{ student_name }}</td>{% endif %}
     <td>{{ t('doc.type_' + doc.doc_type) }}</td>
     <td>{{ doc.serial or '—' }}</td>
-    <td>{{ doc.expiry_date.strftime('%d %b %Y') }}</td>
-    <td>{{ status_badge(doc) }}</td>
-    <td class="text-end text-nowrap">
+    <td data-order="{{ doc.expiry_date.isoformat() }}">{{ doc.expiry_date.strftime('%d %b %Y') }}</td>
+    {{ status_cell(doc) }}
+    <td class="text-end text-nowrap no-sort">
         <button type="button" class="btn btn-sm btn-outline-primary js-view"
                 data-url="{{ url_for('documents.view', doc_id=doc.id) }}"
                 data-dl="{{ url_for('documents.download', doc_id=doc.id) }}"
@@ -40,19 +43,9 @@
 </tr>
 {% endmacro %}
 
-{% macro doc_table(docs) %}
-<table class="table table-sm mb-0 align-middle">
-    <thead><tr>
-        <th>{{ t('doc.type') }}</th><th>{{ t('doc.serial') }}</th>
-        <th>{{ t('doc.expiry_date') }}</th><th>{{ t('doc.status') }}</th><th></th>
-    </tr></thead>
-    <tbody>{% for doc in docs %}{{ doc_row(doc) }}{% endfor %}</tbody>
-</table>
-{% endmacro %}
-
 {% block content %}
 <div class="row g-3">
-    <div class="col-lg-5">
+    <div class="col-lg-4">
         <div class="card">
             <div class="card-header"><i class="bi bi-upload me-2"></i>{{ t('doc.upload') }}</div>
             <div class="card-body">
@@ -87,25 +80,33 @@
         </div>
     </div>
 
-    <div class="col-lg-7">
-        {% if is_planner %}
-            {% if not groups %}
-            <div class="card"><div class="card-body text-muted">{{ t('doc.none') }}</div></div>
-            {% endif %}
-            {% for g in groups %}
-            <div class="card mb-3">
-                <div class="card-header py-2"><i class="bi bi-person me-2"></i>{{ g.student.full_name if g.student else '—' }}</div>
-                <div class="card-body p-0">{{ doc_table(g.docs) }}</div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header py-2">
+                <i class="bi bi-folder me-2"></i>{% if is_planner %}{{ t('nav.documents') }}{% else %}{{ t('doc.my_documents') }}{% endif %}
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="card">
-                <div class="card-header py-2"><i class="bi bi-folder me-2"></i>{{ t('doc.my_documents') }}</div>
-                <div class="card-body p-0">
-                    {% if my_docs %}{{ doc_table(my_docs) }}{% else %}<div class="p-3 text-muted">{{ t('doc.none') }}</div>{% endif %}
-                </div>
+            <div class="card-body">
+                <table id="docsTable" class="table table-striped dt-responsive nowrap w-100">
+                    <thead>
+                        <tr>
+                            {% if is_planner %}<th>{{ t('doc.student') }}</th>{% endif %}
+                            <th>{{ t('doc.type') }}</th>
+                            <th>{{ t('doc.serial') }}</th>
+                            <th>{{ t('doc.expiry_date') }}</th>
+                            <th>{{ t('doc.status') }}</th>
+                            <th class="no-sort"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if is_planner %}
+                            {% for g in groups %}{% for doc in g.docs %}{{ doc_row(doc, g.student.full_name if g.student else '—') }}{% endfor %}{% endfor %}
+                        {% else %}
+                            {% for doc in my_docs %}{{ doc_row(doc, none) }}{% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 
@@ -169,26 +170,40 @@
 {% block extra_js %}
 <script>
 const IMG_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-document.querySelectorAll('.js-view').forEach(b => b.addEventListener('click', () => {
-    document.getElementById('viewModalTitle').textContent = b.dataset.name;
-    const body = document.getElementById('viewModalBody');
-    if (IMG_EXT.includes(b.dataset.ext)) {
-        body.innerHTML = '<img src="' + b.dataset.url + '" class="img-fluid d-block mx-auto">';
-    } else {
-        body.innerHTML = '<iframe src="' + b.dataset.url + '" style="width:100%;height:70vh;border:0"></iframe>';
+// Event delegation so handlers survive DataTables pagination / responsive child rows.
+document.addEventListener('click', (e) => {
+    const v = e.target.closest('.js-view');
+    if (v) {
+        document.getElementById('viewModalTitle').textContent = v.dataset.name;
+        const body = document.getElementById('viewModalBody');
+        body.innerHTML = IMG_EXT.includes(v.dataset.ext)
+            ? '<img src="' + v.dataset.url + '" class="img-fluid d-block mx-auto">'
+            : '<iframe src="' + v.dataset.url + '" style="width:100%;height:70vh;border:0"></iframe>';
+        document.getElementById('viewModalDownload').href = v.dataset.dl;
+        new bootstrap.Modal('#viewModal').show();
+        return;
     }
-    document.getElementById('viewModalDownload').href = b.dataset.dl;
-    new bootstrap.Modal('#viewModal').show();
-}));
-document.querySelectorAll('.js-edit').forEach(b => b.addEventListener('click', () => {
-    const f = document.getElementById('editForm');
-    f.action = b.dataset.action;
-    f.querySelector('[name=doc_type]').value = b.dataset.type;
-    f.querySelector('[name=serial]').value = b.dataset.serial;
-    f.querySelector('[name=expiry_date]').value = b.dataset.expiry;
-    f.querySelector('[name=file]').value = '';
-    document.getElementById('editCurrentFile').textContent = b.dataset.name;
-    new bootstrap.Modal('#editModal').show();
-}));
+    const ed = e.target.closest('.js-edit');
+    if (ed) {
+        const f = document.getElementById('editForm');
+        f.action = ed.dataset.action;
+        f.querySelector('[name=doc_type]').value = ed.dataset.type;
+        f.querySelector('[name=serial]').value = ed.dataset.serial;
+        f.querySelector('[name=expiry_date]').value = ed.dataset.expiry;
+        f.querySelector('[name=file]').value = '';
+        document.getElementById('editCurrentFile').textContent = ed.dataset.name;
+        new bootstrap.Modal('#editModal').show();
+    }
+});
+
+$(document).ready(function () {
+    $('#docsTable').DataTable({
+        responsive: true,
+        pageLength: 25,
+        order: [],
+        columnDefs: [{ targets: 'no-sort', orderable: false }],
+        language: { search: '', searchPlaceholder: {{ t('table.filter')|tojson }} },
+    });
+});
 </script>
 {% endblock %}

@@ -649,6 +649,16 @@ def auto_apply():
                                flight_type='training', status='confirmed', notes=''))
         created += 1
     db.session.commit()
+
+    # Notify each affected student that their weekly plan is published.
+    if created:
+        from app import push
+        from collections import Counter
+        per_student = Counter(int(f['student_id']) for f in flights if f.get('student_id'))
+        for sid, n in per_student.items():
+            push.send_push(sid, _t('push.plan_title'),
+                           _t('push.plan_body').format(week=iso_week, n=n),
+                           url=url_for('scheduling.my_schedule'))
     return jsonify({'ok': True, 'created': created, 'skipped': skipped})
 
 
@@ -770,6 +780,14 @@ def assign():
         )
         db.session.add(booking)
     db.session.commit()
+
+    # Notify the student that a flight was scheduled/changed.
+    from app import push
+    from app.models import Aircraft as _Ac
+    ac = db.session.get(_Ac, aircraft_id)
+    push.send_push(student_id, _t('push.flight_title'),
+                   f"{slot_date:%d %b} · {start_time:%H:%M}–{end_time:%H:%M}" + (f" · {ac.registration}" if ac else ''),
+                   url=url_for('scheduling.my_schedule'))
 
     return jsonify({'ok': True, 'booking': _booking_dict(booking), 'within_availability': within})
 
