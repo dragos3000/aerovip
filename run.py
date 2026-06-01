@@ -181,11 +181,13 @@ def gen_vapid():
     from app.models import Setting
     v = Vapid01()
     v.generate_keys()
-    priv_pem = v.private_pem().decode()
+    # pywebpush's Vapid.from_string expects the raw 32-byte private key as base64url.
+    priv_raw = v.private_key.private_numbers().private_value.to_bytes(32, 'big')
+    priv_b64 = base64.urlsafe_b64encode(priv_raw).rstrip(b'=').decode()
     raw = v.public_key.public_bytes(serialization.Encoding.X962,
                                     serialization.PublicFormat.UncompressedPoint)
     app_key = base64.urlsafe_b64encode(raw).rstrip(b'=').decode()
-    Setting.set('vapid_private', priv_pem, 'Web Push VAPID private key (PEM)')
+    Setting.set('vapid_private', priv_b64, 'Web Push VAPID private key (raw base64url)')
     Setting.set('vapid_public', app_key, 'Web Push VAPID public key (applicationServerKey)')
     if not Setting.get('vapid_contact', ''):
         Setting.set('vapid_contact', 'mailto:admin@aerovip.ro', 'Web Push contact')

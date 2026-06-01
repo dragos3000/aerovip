@@ -25,7 +25,8 @@ def _deliver(app, user_ids, title, body, url):
         for sub in subs:
             try:
                 webpush(subscription_info=sub.as_info(), data=payload,
-                        vapid_private_key=priv, vapid_claims={'sub': contact})
+                        vapid_private_key=priv, vapid_claims={'sub': contact},
+                        ttl=86400)   # hold up to 24h if the device is briefly offline
             except WebPushException as e:
                 status = getattr(e.response, 'status_code', None)
                 if status in (404, 410):                 # gone — drop the dead subscription
