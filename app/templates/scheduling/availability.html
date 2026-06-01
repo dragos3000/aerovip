@@ -42,9 +42,13 @@
                     <i class="bi bi-calendar-week me-2"></i>{{ t('sched.week') }} {{ week.iso_week }}
                     <small class="text-muted">· {{ week.label }}</small>
                 </span>
-                <div class="d-flex align-items-center gap-2">
-                    <a href="{{ url_for('scheduling.availability', week=week.prev_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
-                    <select class="form-select form-select-sm" style="width:auto" onchange="location.href='{{ url_for('scheduling.availability') }}?week='+this.value">
+                <div class="d-flex align-items-center gap-2 flex-grow-1 justify-content-end" style="min-width:0">
+                    {% if can_go_prev %}
+                    <a href="{{ url_for('scheduling.availability', week=week.prev_key) }}" class="btn btn-sm btn-outline-secondary flex-shrink-0"><i class="bi bi-chevron-left"></i></a>
+                    {% else %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" disabled title="{{ t('sched.no_past_weeks') }}"><i class="bi bi-chevron-left"></i></button>
+                    {% endif %}
+                    <select class="form-select form-select-sm" style="min-width:0;flex:1 1 auto;max-width:280px" onchange="location.href='{{ url_for('scheduling.availability') }}?week='+this.value">
                         {% set found = namespace(v=false) %}
                         {% for w in upcoming_weeks %}
                             {% if w.key == week.key %}{% set found.v = true %}{% endif %}
@@ -54,10 +58,13 @@
                             <option value="{{ week.key }}" selected>{{ t('sched.week') }} {{ week.iso_week }} · {{ week.label }}</option>
                         {% endif %}
                     </select>
-                    <a href="{{ url_for('scheduling.availability', week=week.next_key) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+                    <a href="{{ url_for('scheduling.availability', week=week.next_key) }}" class="btn btn-sm btn-outline-secondary flex-shrink-0"><i class="bi bi-chevron-right"></i></a>
                 </div>
             </div>
             <div class="card-body">
+                {% if is_past %}
+                <div class="alert alert-secondary small py-2 mb-2"><i class="bi bi-lock me-1"></i>{{ t('sched.past_readonly') }}</div>
+                {% endif %}
                 <p class="text-muted small mb-2">
                     <i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}
                     <span class="ms-2"><span style="display:inline-block;width:12px;height:12px;background:#dbe3f1;border:1px solid #ccc;vertical-align:middle"></span>
@@ -108,7 +115,7 @@
                 <textarea id="notes" class="form-control" rows="3" placeholder="{{ t('sched.notes_ph') }}">{{ notes }}</textarea>
             </div>
         </div>
-        <button type="button" class="btn btn-av-primary w-100" id="saveBtn">
+        <button type="button" class="btn btn-av-primary w-100" id="saveBtn"{% if is_past %} disabled{% endif %}>
             <i class="bi bi-check2-circle me-1"></i>{{ t('sched.save_availability') }}
         </button>
         <div id="saveMsg" class="small mt-2"></div>
@@ -130,6 +137,7 @@
 {% block extra_js %}
 <script>
 const WEEK_KEY = {{ week.key|tojson }};
+const READONLY = {{ is_past|tojson }};   // past weeks: view only, no painting/saving
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const existingSlots = new Set({{ existing_slots|tojson }});
 const existingRequests = {{ existing_requests|tojson }};
@@ -145,16 +153,18 @@ cells.forEach(c => {
 let painting = false, paintOn = true;
 function setCell(c) { c.classList.toggle('on', paintOn); }
 
-cells.forEach(c => {
-    c.addEventListener('pointerdown', e => {
-        e.preventDefault();
-        painting = true;
-        paintOn = !c.classList.contains('on');
-        setCell(c);
+if (!READONLY) {
+    cells.forEach(c => {
+        c.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            painting = true;
+            paintOn = !c.classList.contains('on');
+            setCell(c);
+        });
+        c.addEventListener('pointerenter', () => { if (painting) setCell(c); });
     });
-    c.addEventListener('pointerenter', () => { if (painting) setCell(c); });
-});
-document.addEventListener('pointerup', () => { painting = false; });
+    document.addEventListener('pointerup', () => { painting = false; });
+}
 
 // ----- Flight requests -----
 const reqContainer = document.getElementById('requests');

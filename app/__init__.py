@@ -1,4 +1,6 @@
 import os
+import subprocess
+from datetime import datetime
 from flask import Flask, session, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -13,9 +15,22 @@ migrate = Migrate()
 csrf = CSRFProtect()
 
 
+def _compute_version():
+    """Version string derived from git — bumps on every commit (count + short SHA).
+    Computed once at startup; a deploy restarts the service so it refreshes."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        count = subprocess.check_output(['git', 'rev-list', '--count', 'HEAD'],
+                                        cwd=root, stderr=subprocess.DEVNULL, timeout=3).decode().strip()
+        return count
+    except Exception:
+        return 'dev'
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+    app.config['APP_VERSION'] = _compute_version()
 
     # Handle reverse proxy headers (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Prefix)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_prefix=1)
@@ -60,6 +75,11 @@ def create_app(config_class=Config):
                 v = 0
             return url_for('main.asset', v=v, filename=filename)
         return dict(asset_url=asset_url)
+
+    @app.context_processor
+    def inject_version():
+        return dict(app_version=app.config.get('APP_VERSION', 'dev'),
+                    current_year=datetime.utcnow().year)
 
     from app.models import User
     from app.translations import get_translation

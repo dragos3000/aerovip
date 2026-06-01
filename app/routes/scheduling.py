@@ -56,6 +56,12 @@ def availability():
     iso_year, iso_week = _resolve_week('next')
     week = weekutils.week_context(iso_year, iso_week)
 
+    # Students can't submit availability for a past week — the current week is the
+    # earliest. is_past makes the grid read-only; can_go_prev gates the ◀ button.
+    cur_iso = weekutils.current_iso()
+    is_past = (iso_year, iso_week) < cur_iso
+    can_go_prev = (iso_year, iso_week) > cur_iso
+
     submission = AvailabilitySubmission.query.filter_by(
         student_id=current_user.id, iso_year=iso_year, iso_week=iso_week
     ).first()
@@ -145,6 +151,8 @@ def availability():
         op_window=op_window,
         disp_shift=disp_shift,
         busy_level=busy_level,
+        is_past=is_past,
+        can_go_prev=can_go_prev,
         upcoming_weeks=weekutils.upcoming_weeks(6),
     )
 

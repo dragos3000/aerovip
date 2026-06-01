@@ -21,6 +21,8 @@ fleet management, and live airfield/weather information. Installable as a PWA.
     and vice-versa).
   - **Operating days** — only the configured operating weekdays are pickable; unused
     days are removed from both the availability grid and the planning board.
+  - **No past weeks** — the current week is the earliest submittable; past weeks are
+    read-only (grid locked, Save disabled) and the ◀ nav stops at the current week.
   - **Busy-hour heat** — each hour cell is discreetly tinted by how contended it is —
     the number of *other* students who have booked **or** marked availability there,
     shaded against instructor/aircraft capacity — nudging students toward freer hours
@@ -61,6 +63,8 @@ fleet management, and live airfield/weather information. Installable as a PWA.
   times** (planning board, availability grid, booking lists, sun/night times) so
   it's always clear which zone is displayed.
 - **Bilingual**: Romanian / English.
+- **Footer**: shows `© by Start-Line <year>` and a version number (`v<n>`) derived
+  from the git commit count, so it bumps on every commit (refreshed on deploy/restart).
 - **PWA**: installable, with an offline page and a network-first service worker.
 - **Mobile-first**: Bootstrap 5 + DataTables Responsive (collapsing tables),
   off-canvas menu.
