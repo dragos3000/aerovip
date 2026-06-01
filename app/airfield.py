@@ -51,9 +51,15 @@ def get_airfield_info():
 
 
 def save_airfield_info(form_data):
-    """Persist submitted airfield fields (form_data is request.form)."""
+    """Persist submitted airfield fields (form_data is request.form).
+
+    Only fields actually present in the submission are written — so a partial
+    form (e.g. a role that doesn't render every field) can never blank values
+    it never showed.
+    """
     for key, _label, default, _ml in AIRFIELD_FIELDS:
-        Setting.set(key, (form_data.get(key) or '').strip(), 'Home airfield information')
+        if key in form_data:
+            Setting.set(key, (form_data.get(key) or '').strip(), 'Home airfield information')
     if 'airfield_map_url' in form_data:
         Setting.set('airfield_map_url', (form_data.get('airfield_map_url') or '').strip(),
                     'Home airfield map embed URL (RO)')

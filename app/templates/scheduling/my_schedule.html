@@ -34,7 +34,7 @@
                 {% for b in bookings %}
                 <tr>
                     <td><strong>{{ disp(b.start_time, '%a, %b %-d') }}</strong></td>
-                    <td>{{ disp(b.start_time, '%H:%M') }} – {{ disp(b.end_time, '%H:%M') }}</td>
+                    <td>{{ disp(b.start_time, '%H:%M') }} – {{ disp(b.end_time, '%H:%M') }}{{ tz_suffix }}</td>
                     <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
                     <td><strong>{{ b.aircraft.registration }}</strong> <small class="text-muted">{{ b.aircraft.model }}</small></td>
                     {% if current_user.role == 'instructor' %}

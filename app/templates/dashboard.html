@@ -98,7 +98,7 @@
                                     {% for b in g.bookings %}
                                     <tr>
                                         <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%b %d, %Y') }}</td>
-                                        <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
+                                        <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}{{ tz_suffix }}</td>
                                         <td>{{ b.student.full_name }}</td>
                                         <td>{{ b.instructor.full_name }}</td>
                                         <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
@@ -126,7 +126,7 @@
                         {% for b in bookings %}
                         <tr>
                             <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%b %d, %Y') }}</td>
-                            <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
+                            <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}{{ tz_suffix }}</td>
                             <td><strong>{{ b.aircraft.registration }}</strong></td>
                             <td>{% if current_user.role == 'instructor' %}{{ b.student.full_name }}{% else %}{{ b.instructor.full_name }}{% endif %}</td>
                             <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
@@ -194,19 +194,19 @@
         <div class="row text-center g-3">
             <div class="col-6 col-md-3">
                 <div class="text-muted small text-uppercase">{{ t('sun.sunrise') }}</div>
-                <div class="fw-bold fs-5"><i class="bi bi-sunrise text-warning me-1"></i>{{ disp(suntimes.sunrise, '%H:%M') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-sunrise text-warning me-1"></i>{{ disp(suntimes.sunrise, '%H:%M') }}{% if tz_suffix %} <small class="text-muted fw-normal">UTC</small>{% endif %}</div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="text-muted small text-uppercase">{{ t('sun.sunset') }}</div>
-                <div class="fw-bold fs-5"><i class="bi bi-sunset text-warning me-1"></i>{{ disp(suntimes.sunset, '%H:%M') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-sunset text-warning me-1"></i>{{ disp(suntimes.sunset, '%H:%M') }}{% if tz_suffix %} <small class="text-muted fw-normal">UTC</small>{% endif %}</div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="text-muted small text-uppercase">{{ t('sun.night_start') }}</div>
-                <div class="fw-bold fs-5"><i class="bi bi-moon-stars text-primary me-1"></i>{{ disp(suntimes.dusk, '%H:%M') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-moon-stars text-primary me-1"></i>{{ disp(suntimes.dusk, '%H:%M') }}{% if tz_suffix %} <small class="text-muted fw-normal">UTC</small>{% endif %}</div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="text-muted small text-uppercase">{{ t('sun.night_end') }}</div>
-                <div class="fw-bold fs-5"><i class="bi bi-moon text-primary me-1"></i>{{ disp(suntimes.dawn, '%H:%M') }}</div>
+                <div class="fw-bold fs-5"><i class="bi bi-moon text-primary me-1"></i>{{ disp(suntimes.dawn, '%H:%M') }}{% if tz_suffix %} <small class="text-muted fw-normal">UTC</small>{% endif %}</div>
             </div>
         </div>
         <div class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>{{ t('sun.note') }}</div>

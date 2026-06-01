@@ -19,6 +19,17 @@ def admin_required(f):
     return decorated
 
 
+def settings_required(f):
+    """Settings is open to planners (admins + managers); API keys/URLs stay admin-only."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_planner:
+            flash('Settings access required.', 'danger')
+            return redirect(url_for('main.dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
+
 @bp.route('/users')
 @login_required
 @admin_required
@@ -74,17 +85,32 @@ def all_bookings():
 
 @bp.route('/settings', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@settings_required
 def settings():
+    from app import operating
     form = SettingsForm()
+    # API keys / URLs are admin-only; managers never see or save them.
+    can_edit_api = (current_user.role == 'admin')
 
     if form.validate_on_submit():
-        Setting.set('checkwx_api_key', form.checkwx_api_key.data.strip(),
-                     'CheckWX API key for weather and NOTAMs')
+        if can_edit_api:
+            Setting.set('checkwx_api_key', form.checkwx_api_key.data.strip(),
+                         'CheckWX API key for weather and NOTAMs')
+            Setting.set('airfield_weather_url', form.airfield_weather_url.data.strip(),
+                         'Airfield weather station JSON URL')
         Setting.set('icao_airport', form.icao_airport.data.strip().upper() or 'LRBS',
                      'ICAO airport code for weather/NOTAMs')
-        Setting.set('airfield_weather_url', form.airfield_weather_url.data.strip(),
-                     'Airfield weather station JSON URL')
+        # Operating window (UTC) + operating week days — available to managers too.
+        start = form.op_hours_start_utc.data if form.op_hours_start_utc.data is not None else operating.DEFAULT_START_UTC
+        end = form.op_hours_end_utc.data if form.op_hours_end_utc.data is not None else operating.DEFAULT_END_UTC
+        if end <= start:
+            end = start + 1
+        Setting.set(operating.OP_START_KEY, str(start), 'Airfield operating start hour (UTC)')
+        Setting.set(operating.OP_END_KEY, str(end), 'Airfield operating end hour (UTC, exclusive)')
+        for wd, abbr in enumerate(operating.DAY_ABBR):
+            field = getattr(form, 'op_day_' + abbr)
+            Setting.set(operating.DAY_SETTING_KEYS[wd], '1' if field.data else '0',
+                        'Airfield operates on ' + abbr.capitalize())
         save_airfield_info(request.form)
         # Apply the new weather config soon, in the background (don't block the save on a slow API).
         from flask import current_app
@@ -97,8 +123,15 @@ def settings():
     form.checkwx_api_key.data = Setting.get('checkwx_api_key', '')
     form.icao_airport.data = Setting.get('icao_airport', 'LRBS')
     form.airfield_weather_url.data = Setting.get('airfield_weather_url', '')
+    start_utc, end_utc = operating.operating_hours_utc()
+    form.op_hours_start_utc.data = start_utc
+    form.op_hours_end_utc.data = end_utc
+    open_days = operating.open_days_map()
+    for wd, abbr in enumerate(operating.DAY_ABBR):
+        getattr(form, 'op_day_' + abbr).data = open_days[wd]
 
     return render_template('admin/settings.html', form=form,
+                           can_edit_api=can_edit_api,
                            airfield_info=get_airfield_info(),
                            airfield_map_url=get_airfield_map_url('ro'),
                            airfield_map_url_en=get_airfield_map_url('en'))

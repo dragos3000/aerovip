@@ -185,6 +185,43 @@ def _fetch_notams(icao):
     return result
 
 
+def _keep_last_good_notams(new, prev):
+    """A transient ROMATSA failure shouldn't wipe NOTAMs we already have. If the
+    fresh fetch errored and returned nothing but we had good NOTAMs before, keep
+    serving those (flagged stale) instead of showing a connection error."""
+    if new.get('error') and not new.get('notams') and prev and prev.get('notams'):
+        kept = dict(prev)
+        kept['stale'] = True
+        kept['error'] = None
+        return kept
+    return new
+
+
+def _keep_last_good_weather(new, prev):
+    """Same idea for METAR/TAF — don't replace a good reading with an error."""
+    if new.get('error') and not new.get('metar') and prev and prev.get('metar'):
+        kept = dict(prev)
+        kept['stale'] = True
+        kept['error'] = None
+        return kept
+    return new
+
+
+def _fetch_and_store(api_key, icao):
+    """Fetch weather + NOTAMs and write the cache, preserving last-good data on a
+    transient fetch failure. Returns the cached_at timestamp string."""
+    weather = _fetch_weather(api_key, icao)
+    notams = _fetch_notams(icao)
+
+    prev = _read_cache() or {}
+    weather = _keep_last_good_weather(weather, prev.get('weather'))
+    notams = _keep_last_good_notams(notams, prev.get('notams'))
+
+    now = datetime.utcnow().isoformat() + 'Z'
+    _write_cache({'weather': weather, 'notams': notams, 'cached_at': now})
+    return now
+
+
 # ── Background loop ──────────────────────────────────────────────
 def _refresh_loop(app):
     """Runs in a daemon thread. Uses a file lock so only one worker refreshes."""
@@ -210,15 +247,7 @@ def _refresh_loop(app):
                 icao = Setting.get('icao_airport', '') or app.config.get('ICAO_AIRPORT', 'LRBS')
 
             logger.info('Weather cache: refreshing METAR/TAF and NOTAMs for %s', icao)
-            weather = _fetch_weather(api_key, icao)
-            notams = _fetch_notams(icao)
-
-            now = datetime.utcnow().isoformat() + 'Z'
-            _write_cache({
-                'weather': weather,
-                'notams': notams,
-                'cached_at': now,
-            })
+            now = _fetch_and_store(api_key, icao)
             logger.info('Weather cache: refresh complete at %s', now)
 
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
@@ -248,10 +277,7 @@ def refresh_now():
     try:
         api_key = Setting.get('checkwx_api_key', '') or current_app.config.get('CHECKWX_API_KEY', '')
         icao = Setting.get('icao_airport', '') or current_app.config.get('ICAO_AIRPORT', 'LRBS')
-        weather = _fetch_weather(api_key, icao)
-        notams = _fetch_notams(icao)
-        _write_cache({'weather': weather, 'notams': notams,
-                      'cached_at': datetime.utcnow().isoformat() + 'Z'})
+        _fetch_and_store(api_key, icao)
         return True
     except Exception:
         logger.exception('Weather cache: forced refresh failed')

@@ -15,6 +15,15 @@ fleet management, and live airfield/weather information. Installable as a PWA.
     Buildup / AUPRT / Night in the same week.
   - **Night needs post-sunset availability** — Night hours require at least one
     marked slot at/after the airfield's sunset (the grid shades the night window).
+  - **Operating hours** — daytime slots must fall inside the airfield's configured
+    operating window (set in UTC); cells outside it are closed/non-pickable. The
+    exception is **after-sunset (Night) cells**, which stay selectable because night
+    training is flown at a non-stop airport elsewhere.
+  - **Operating days** — only the configured operating weekdays are pickable; unused
+    days are removed from both the availability grid and the planning board.
+  - **Busy-hour heat** — each hour cell carries a discrete bottom bar shaded by how
+    booked that slot already is (vs. instructor/aircraft capacity), nudging students
+    toward freer hours.
 - **Auto-scheduler (linear program)** — a PuLP/CBC integer program solves the
   many-students/few-resources matching fairly (everyone's first hours weighted
   highest), with toggles to keep-vs-rebuild, distribute over planes, distribute over
@@ -29,13 +38,20 @@ fleet management, and live airfield/weather information. Installable as a PWA.
   auto-calculated from times, shown as H:MM); PPL-A flights get the EASA exercises
   multi-select; filter by student/period; sortable, responsive DataTables.
 - **Roles**: Student, Instructor, **Manager**, Admin. Planners (admin + manager)
-  build the schedule; instructors log flights and see their assignments.
+  build the schedule; instructors log flights and see their assignments. Managers
+  can also reach **Settings** (operating hours/days, ICAO, airfield info) — only the
+  API key, weather URL and map URLs stay admin-only.
 - **Dashboard**: stats, upcoming flights, live weather, METAR/TAF, NOTAMs, and an
   editable home-airfield info card + embedded map (bilingual).
 - **Airfield weather station**: live data from a local Ecowitt station.
 - **METAR / TAF**: CheckWX API with nearest-station fallback; cached hourly.
 - **NOTAMs**: live from ROMATSA.
-- **LT / UTC toggle** across the whole app (incl. weather card times).
+- **Resilient weather/NOTAM cache**: a transient upstream failure never wipes good
+  data — the last successful METAR/TAF/NOTAMs keep showing (flagged stale) instead
+  of an error.
+- **LT / UTC toggle** across the whole app, with a **UTC label shown next to the
+  times** (planning board, availability grid, booking lists, sun/night times) so
+  it's always clear which zone is displayed.
 - **Bilingual**: Romanian / English.
 - **PWA**: installable, with an offline page and a network-first service worker.
 - **Mobile-first**: Bootstrap 5 + DataTables Responsive (collapsing tables),
@@ -80,15 +96,18 @@ python run.py
 
 ## Configuration
 
-Managed via **Admin → Settings** in the web UI:
+Managed via **Settings** in the web UI (admins + managers; API key / URLs are admin-only):
 
-- **CheckWX API key** — free key from [checkwx.com](https://www.checkwx.com) for METAR/TAF/NOTAMs
+- **Operating hours (UTC)** — the daytime window students may mark availability in
+- **Operating days** — per-weekday toggles; unused days drop off the grid and board
+- **CheckWX API key** — free key from [checkwx.com](https://www.checkwx.com) for METAR/TAF/NOTAMs (admin-only)
 - **ICAO airport code** — for weather/NOTAMs (e.g. LRPW falls back to nearest station LROP)
-- **Airfield weather URL** — JSON endpoint for the local station
+- **Airfield weather URL** — JSON endpoint for the local station (admin-only)
 - **Home airfield info** — ARP coordinates, elevation, frequencies, airspace, procedures (shown on the dashboard)
-- **Airfield map** — Google My Maps embed URL (separate RO / EN maps)
+- **Airfield map** — Google My Maps embed URL (separate RO / EN maps, admin-only)
 
-Saving settings triggers an immediate weather-cache refresh.
+Settings are stored in the database (the `.env` `CHECKWX_API_KEY` is only a
+fallback). Saving triggers an immediate weather-cache refresh.
 
 ## Deployment notes
 
@@ -111,6 +130,20 @@ The app is served under a **path prefix** (`/aerovip/`) behind **Cloudflare**.
 
 ```bash
 sudo bash deploy.sh
+```
+
+## Database backups
+
+`scripts/backup_db.sh` writes a timestamped gzipped `pg_dump` to
+`/home/ubuntu01/backups/aerovip/`, keeping the newest 30 (atomic write + rotation;
+credentials read from `.env`). It's scheduled in the user crontab daily at 03:00.
+Restore instructions are in `scripts/README-backup.md`.
+
+```bash
+scripts/backup_db.sh                  # run a backup now
+flask --app run reseed-current-next   # drop closed-day bookings + reseed sample
+                                      # availability for the current & next week,
+                                      # honouring operating hours/days
 ```
 
 ## License

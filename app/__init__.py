@@ -95,7 +95,9 @@ def create_app(config_class=Config):
                 return weekutils.to_utc(dt).strftime(fmt)
             return dt.strftime(fmt)
 
-        return dict(tz_mode=mode, disp=disp)
+        # Appended after displayed times so it's clear they're UTC when UTC is selected.
+        tz_suffix = ' UTC' if mode == 'utc' else ''
+        return dict(tz_mode=mode, disp=disp, tz_suffix=tz_suffix)
 
     from app.routes import auth, main, admin, scheduling, aircraft, logbook
     app.register_blueprint(auth.bp)

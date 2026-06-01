@@ -25,7 +25,7 @@
                 <tr>
                     <td>{{ b.id }}</td>
                     <td data-order="{{ b.start_time.strftime('%Y%m%d') }}">{{ disp(b.start_time, '%b %d, %Y') }}</td>
-                    <td>{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
+                    <td>{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}{{ tz_suffix }}</td>
                     <td>{{ b.student.full_name }}</td>
                     <td>{{ b.instructor.full_name }}</td>
                     <td><strong>{{ b.aircraft.registration }}</strong></td>

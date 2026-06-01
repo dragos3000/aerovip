@@ -15,6 +15,17 @@
     .avail-grid td.cell:hover { background: #eef4ff; }
     .avail-grid td.cell.on { background: #0d6efd; }
     .avail-grid td.cell.on:hover { background: #0b5ed7; }
+    /* Outside operating hours (and not night) — closed, not pickable. */
+    .avail-grid td.cell.off,
+    .avail-grid td.cell.off:hover {
+        background: repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 5px,#e9ebee 5px,#e9ebee 10px);
+        cursor: not-allowed;
+    }
+    /* Discrete "how busy" heat: a thin bottom bar by how booked the hour already
+       is (layers over any cell background, including selected/night). */
+    .avail-grid td.cell.b1 { box-shadow: inset 0 -3px 0 rgba(245,200,90,.65); }
+    .avail-grid td.cell.b2 { box-shadow: inset 0 -3px 0 rgba(240,150,55,.85); }
+    .avail-grid td.cell.b3 { box-shadow: inset 0 -4px 0 rgba(220,53,69,.9); }
     .req-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
 </style>
 {% endblock %}
@@ -48,23 +59,28 @@
                     <i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}
                     <span class="ms-2"><span style="display:inline-block;width:12px;height:12px;background:#dbe3f1;border:1px solid #ccc;vertical-align:middle"></span>
                     <i class="bi bi-moon-stars ms-1"></i> {{ t('sched.night_after_sunset') }}</span>
+                    <span class="ms-2"><span style="display:inline-block;width:14px;height:10px;border-bottom:3px solid rgba(240,150,55,.85);vertical-align:middle"></span> {{ t('sched.busy_hint') }}</span>
                 </p>
                 <div class="table-responsive">
                     <table class="avail-grid">
                         <thead>
                             <tr>
-                                <th></th>
+                                <th class="hour-label">{% if tz_mode == 'utc' %}UTC{% else %}LT{% endif %}</th>
                                 {% for d in days %}
-                                <th><span class="dow">{{ t('day.' + week.day_names[loop.index0]|lower) }}</span><br><span class="dt">{{ d.strftime('%b %-d') }}</span></th>
+                                <th><span class="dow">{{ t('day.' + week.day_names[d.weekday()]|lower) }}</span><br><span class="dt">{{ d.strftime('%b %-d') }}</span></th>
                                 {% endfor %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for h in hours %}
                             <tr>
-                                <td class="hour-label">{{ '%02d:00'|format(h) }}</td>
+                                <td class="hour-label">{{ '%02d:00'|format(((h + disp_shift) % 24 + 24) % 24) }}</td>
                                 {% for d in days %}
-                                <td class="cell {{ 'night' if h >= night_start.get(d.isoformat(), 99) }}" data-date="{{ d.isoformat() }}" data-hour="{{ h }}"></td>
+                                {% set ns = night_start.get(d.isoformat(), 99) %}
+                                {% set ow = op_window.get(d.isoformat(), [0, 24]) %}
+                                {% set selectable = (ow[0] <= h and h < ow[1]) or h >= ns %}
+                                {% set bcls = busy_level.get(d.isoformat() ~ '|' ~ h, '') if selectable else '' %}
+                                <td class="cell {{ 'night' if h >= ns }} {{ 'off' if not selectable }} {{ bcls }}" data-date="{{ d.isoformat() }}" data-hour="{{ h }}"></td>
                                 {% endfor %}
                             </tr>
                             {% endfor %}
@@ -116,7 +132,8 @@ const existingSlots = new Set({{ existing_slots|tojson }});
 const existingRequests = {{ existing_requests|tojson }};
 
 // ----- Grid painting -----
-const cells = document.querySelectorAll('td.cell');
+// Cells outside operating hours (and not night) are closed and never pickable.
+const cells = [...document.querySelectorAll('td.cell')].filter(c => !c.classList.contains('off'));
 cells.forEach(c => {
     const key = c.dataset.date + '|' + c.dataset.hour;
     if (existingSlots.has(key)) c.classList.add('on');

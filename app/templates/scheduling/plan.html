@@ -73,6 +73,10 @@
         #board[data-day="6"] .dcol-6 { display: table-cell; }
         .plan-grid { min-width: 0; table-layout: auto; }
         .plan-grid td.cell { height: 36px; }
+        /* The student-picker bar and the day buttons are both sticky at the same
+           top, so on small screens they pin to the same spot and overlap. Let the
+           picker scroll away and keep only the day buttons pinned under the navbar. */
+        .plan-toolbar { position: static; top: auto; }
     }
 </style>
 {% endblock %}
@@ -83,6 +87,7 @@
         <div>
             <i class="bi bi-kanban me-2"></i><strong>{{ t('sched.week') }} {{ week.iso_week }}</strong>
             <span class="text-muted">· {{ week.label }}</span>
+            {% if tz_mode == 'utc' %}<span class="badge bg-secondary ms-1"><i class="bi bi-clock me-1"></i>UTC</span>{% endif %}
         </div>
         <div class="legend small text-muted">
             <span class="sw" style="background:#d8f3df"></span>{{ t('sched.avail_one') }}
@@ -174,7 +179,7 @@
     <div class="card-body p-1 d-flex gap-1">
         {% for d in days %}
         <button type="button" class="btn btn-sm btn-outline-secondary daybtn flex-fill" data-day="{{ loop.index0 }}">
-            {{ t('day.' + week.day_names[loop.index0]|lower) }}<br><small>{{ d.strftime('%-d') }}</small>
+            {{ t('day.' + week.day_names[d.weekday()]|lower) }}<br><small>{{ d.strftime('%-d') }}</small>
         </button>
         {% endfor %}
     </div>
@@ -260,7 +265,7 @@ const AIRCRAFT = {{ aircraft|tojson }};
 const STUDENTS = {{ students|tojson }};
 const INSTRUCTORS = {{ instructors|tojson }};
 const HOURS = {{ hours|tojson }};
-const DAYS = [{% for d in days %}{date:{{ d.isoformat()|tojson }}, label:{{ (t('day.'+week.day_names[loop.index0]|lower) ~ ' ' ~ d.strftime('%-d'))|tojson }}},{% endfor %}];
+const DAYS = [{% for d in days %}{date:{{ d.isoformat()|tojson }}, label:{{ (t('day.'+week.day_names[d.weekday()]|lower) ~ ' ' ~ d.strftime('%-d'))|tojson }}},{% endfor %}];
 const ASSIGN_URL = {{ url_for('scheduling.assign')|tojson }};
 const DELETE_TPL = {{ (url_for('scheduling.plan') ~ '/booking/0/delete')|tojson }};
 const AUTO_URL = {{ url_for('scheduling.auto_schedule')|tojson }};
@@ -281,6 +286,7 @@ const instrName = {}; INSTRUCTORS.forEach(i => instrName[i.id] = i.name);
 
 // ---- time display: stored values stay LOCAL; labels switch to UTC when the navbar toggle is UTC ----
 const DISP_SHIFT = {{ disp_shift }};
+const TZ_LABEL = {{ ('UTC' if tz_mode == 'utc' else 'LT')|tojson }};
 function fmtH(h) { return String(h).padStart(2, '0') + ':00'; }                          // local value
 function dispH(h) { return String((((h + DISP_SHIFT) % 24) + 24) % 24).padStart(2, '0'); } // shown hour
 function dispHourStr(h) { return dispH(h) + ':00'; }
@@ -348,7 +354,7 @@ function renderAircraft(ac) {
 
     const table = document.createElement('table');
     table.className = 'plan-grid';
-    let html = '<thead><tr><th></th>';
+    let html = `<thead><tr><th class="hour-label">${TZ_LABEL}</th>`;
     DAYS.forEach((d, di) => html += `<th class="dcol dcol-${di}">${d.label}</th>`);
     html += '</tr></thead><tbody>';
     HOURS.forEach(h => {

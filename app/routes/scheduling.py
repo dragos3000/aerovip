@@ -68,26 +68,71 @@ def availability():
         existing_requests = [{'hour_type': r.hour_type, 'hours': r.hours} for r in submission.requests]
         notes = submission.notes or ''
 
-    # School is closed Sunday — only Mon..Sat are pickable.
+    # Only the configured operating week days are pickable.
     open_days = weekutils.open_week_dates(iso_year, iso_week)
 
     # Night begins at sunset (per day) — used to shade the night window on the grid.
+    # Operating hours (per day, local) bound the pickable daytime window; night
+    # (after-sunset) cells stay pickable outside it (night flying is done elsewhere).
     from app.sun import sunset_local
+    from app import operating
     night_start = {}
+    op_window = {}
     for d in open_days:
+        iso = d.isoformat()
         ss = sunset_local(d)
-        night_start[d.isoformat()] = (ss.hour + (1 if ss.minute else 0)) if ss else 99
+        night_start[iso] = (ss.hour + (1 if ss.minute else 0)) if ss else 99
+        op_window[iso] = list(operating.operating_hours_local(d))
+
+    # Trim early empty rows: start the grid at the earliest operating hour, but keep
+    # showing through the evening so late Night cells remain selectable.
+    op_starts = [w[0] for w in op_window.values()]
+    grid_start = min(op_starts) if op_starts else weekutils.GRID_START_HOUR
+    grid_start = max(0, min(grid_start, weekutils.GRID_END_HOUR - 1))
+
+    # Hour labels follow the LT/UTC toggle (cell values stay local for submission).
+    tz_mode = session.get('tz', 'lt')
+    disp_shift = weekutils.utc_shift_hours(open_days[0]) if (tz_mode == 'utc' and open_days) else 0
+
+    # Heat overlay: how booked each (date, hour) already is this week, so the student
+    # can steer toward freer hours. Counts OTHER students' bookings, shaded against
+    # per-hour capacity (min of active instructors / available aircraft).
+    days_all = weekutils.week_dates(iso_year, iso_week)
+    ws = datetime.combine(days_all[0], datetime.min.time())
+    we = datetime.combine(days_all[6] + timedelta(days=1), datetime.min.time())
+    capacity = min(User.query.filter_by(role='instructor', is_active=True).count(),
+                   Aircraft.query.filter_by(is_available=True).count())
+    counts = {}
+    for b in Booking.query.filter(Booking.status != 'cancelled',
+                                  Booking.start_time >= ws, Booking.start_time < we,
+                                  Booking.student_id != current_user.id).all():
+        d = b.start_time.date().isoformat()
+        end_h = b.end_time.hour + (24 if b.end_time.date() > b.start_time.date() else 0)
+        for hh in range(b.start_time.hour, end_h):
+            counts[f'{d}|{hh}'] = counts.get(f'{d}|{hh}', 0) + 1
+    half = (capacity + 1) // 2 if capacity else 1
+    busy_level = {}
+    for key, c in counts.items():
+        if capacity and c >= capacity:
+            busy_level[key] = 'b3'      # full — no free aircraft/instructor left
+        elif c >= half:
+            busy_level[key] = 'b2'
+        else:
+            busy_level[key] = 'b1'
 
     return render_template(
         'scheduling/availability.html',
         week=week,
         days=open_days,
-        hours=list(range(weekutils.GRID_START_HOUR, weekutils.GRID_END_HOUR)),
+        hours=list(range(grid_start, weekutils.GRID_END_HOUR)),
         hour_types=HOUR_TYPES,
         existing_slots=existing_slots,
         existing_requests=existing_requests,
         notes=notes,
         night_start=night_start,
+        op_window=op_window,
+        disp_shift=disp_shift,
+        busy_level=busy_level,
         upcoming_weeks=weekutils.upcoming_weeks(6),
     )
 
@@ -109,8 +154,25 @@ def save_availability():
     if (iso_year, iso_week) < (cur_y, cur_w):
         return jsonify({'ok': False, 'error': 'Cannot submit availability for a past week.'}), 400
 
-    # School is closed Sunday — only Mon..Sat slots are accepted.
+    # Only the configured operating week days are accepted.
     valid_dates = {d.isoformat() for d in weekutils.open_week_dates(iso_year, iso_week)}
+
+    # Per-day operating window (local) + sunset, so we can reject slots outside the
+    # operating hours unless they are night (after-sunset) cells.
+    from app.sun import sunset_local
+    from app import operating
+    op_window = {}
+    sunset_hour = {}
+    for d in weekutils.week_dates(iso_year, iso_week):
+        iso = d.isoformat()
+        op_window[iso] = operating.operating_hours_local(d)
+        ss = sunset_local(d)
+        sunset_hour[iso] = (ss.hour + (1 if ss.minute else 0)) if ss else 99
+
+    def _slot_in_window(d_iso, hour):
+        """True if (date, hour) is inside operating hours, or is a night cell."""
+        start, end = op_window.get(d_iso, (weekutils.GRID_START_HOUR, weekutils.GRID_END_HOUR))
+        return (start <= hour < end) or (hour >= sunset_hour.get(d_iso, 99))
 
     # If Night hours are requested, require at least one availability slot after sunset.
     def _num(v):
@@ -143,6 +205,16 @@ def save_availability():
                 break
         if not has_night:
             return jsonify({'ok': False, 'error': _t('err.night_needs_availability')}), 400
+
+    # Reject slots outside the airfield operating hours (night cells are exempt).
+    for slot in data.get('slots', []):
+        d = slot.get('date')
+        try:
+            h = int(slot.get('hour'))
+        except (TypeError, ValueError):
+            continue
+        if d in valid_dates and 0 <= h <= 23 and not _slot_in_window(d, h):
+            return jsonify({'ok': False, 'error': _t('err.outside_operating_hours')}), 400
 
     # Can't request more flight hours than the number of available slots painted
     # (each slot is one hour). 2 squares marked => at most 2h can be requested.

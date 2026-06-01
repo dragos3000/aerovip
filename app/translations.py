@@ -42,6 +42,14 @@ TRANSLATIONS = {
         'settings.airfield_url': 'Airfield Weather Station URL',
         'settings.airfield_url_help': 'JSON endpoint for local weather station (e.g. https://lrpw.ro/weather/?format=json)',
 
+        # Settings - operating window
+        'settings.operating_title': 'Airfield Operations',
+        'settings.operating_start': 'Operating start (UTC)',
+        'settings.operating_end': 'Operating end (UTC)',
+        'settings.operating_hours_help': 'Daytime hours (UTC) students may mark availability in. Times shown on the grid are local. After-sunset (Night) hours stay available — night training is flown elsewhere.',
+        'settings.operating_days': 'Operating week days',
+        'settings.operating_days_help': 'Tick the days the airfield operates. Unchecked days are removed from the planning board and availability grid.',
+
         # Table headers
         'table.date': 'Date',
         'table.time': 'Time',
@@ -139,6 +147,7 @@ TRANSLATIONS = {
         'sched.week': 'Week',
         'sched.drag_hint': 'Click and drag across the grid to mark the hours you are available.',
         'sched.night_after_sunset': 'Night (after sunset)',
+        'sched.busy_hint': 'busier hour (flights already booked) — pick a freer one',
         'sched.hours_wanted': 'Hours You Want to Fly',
         'sched.add_request': 'Add hours',
         'sched.save_availability': 'Save Availability',
@@ -174,6 +183,7 @@ TRANSLATIONS = {
         'err.night_before_sunset': 'Night flights cannot start before sunset ({sunset}).',
         'err.night_needs_availability': 'You requested Night hours but marked no availability after sunset. Add availability in the shaded night hours.',
         'err.ppl_exclusive': 'PPL-A hours cannot be combined with other hour types.',
+        'err.outside_operating_hours': 'Some marked slots are outside the airfield operating hours. Only night (after-sunset) hours can be picked outside that window.',
         'err.hours_exceed_avail': 'You requested {requested}h but marked only {available} available slot(s). Mark more availability or lower your requested hours.',
         'sched.ppl_confirm': 'PPL-A is training for unlicensed students and cannot be combined with other hour types. Adding PPL-A will remove your other hours. Continue?',
         'sched.other_confirm': 'This hour type is not compatible with PPL-A training. Adding it will remove your PPL-A hours. Continue?',
@@ -314,6 +324,14 @@ TRANSLATIONS = {
         'settings.airfield_url': 'URL Statie Meteo Aerodrom',
         'settings.airfield_url_help': 'Endpoint JSON pentru statia meteo locala (ex. https://lrpw.ro/weather/?format=json)',
 
+        # Settings - program operare
+        'settings.operating_title': 'Program Aerodrom',
+        'settings.operating_start': 'Început program (UTC)',
+        'settings.operating_end': 'Sfârșit program (UTC)',
+        'settings.operating_hours_help': 'Orele de zi (UTC) în care studenții pot marca disponibilitate. Orele afișate în grilă sunt locale. Orele de noapte (după apus) rămân disponibile — zborul de noapte se face în altă parte.',
+        'settings.operating_days': 'Zile de operare',
+        'settings.operating_days_help': 'Bifează zilele în care aerodromul operează. Zilele nebifate sunt eliminate din planificare și din grila de disponibilitate.',
+
         # Table headers
         'table.date': 'Data',
         'table.time': 'Ora',
@@ -411,6 +429,7 @@ TRANSLATIONS = {
         'sched.week': 'Saptamana',
         'sched.drag_hint': 'Apasa si trage peste grila pentru a marca orele in care esti disponibil.',
         'sched.night_after_sunset': 'Noapte (după apus)',
+        'sched.busy_hint': 'oră aglomerată (zboruri deja rezervate) — alege una mai liberă',
         'sched.hours_wanted': 'Ore pe care vrei sa le zbori',
         'sched.add_request': 'Adauga ore',
         'sched.save_availability': 'Salveaza Disponibilitatea',
@@ -446,6 +465,7 @@ TRANSLATIONS = {
         'err.night_before_sunset': 'Zborurile de noapte nu pot începe înainte de apus ({sunset}).',
         'err.night_needs_availability': 'Ai cerut ore de noapte dar nu ai marcat disponibilitate după apus. Adaugă disponibilitate în orele de noapte (umbrite).',
         'err.ppl_exclusive': 'Orele PPL-A nu pot fi combinate cu alte tipuri de ore.',
+        'err.outside_operating_hours': 'Unele intervale marcate sunt în afara programului aerodromului. Doar orele de noapte (după apus) pot fi alese în afara acestui interval.',
         'err.hours_exceed_avail': 'Ai cerut {requested}h dar ai marcat doar {available} interval(e) disponibile. Marchează mai multă disponibilitate sau redu orele cerute.',
         'sched.ppl_confirm': 'PPL-A este instruire pentru studenți fără licență și nu poate fi combinat cu alte tipuri de ore. Adăugarea PPL-A va elimina celelalte ore. Continui?',
         'sched.other_confirm': 'Acest tip de oră nu este compatibil cu instruirea PPL-A. Adăugarea va elimina orele PPL-A. Continui?',
