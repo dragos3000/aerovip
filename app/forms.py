@@ -1,5 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SelectField, BooleanField, TextAreaField, DecimalField, IntegerField, DateTimeLocalField
+from flask_wtf.file import FileField, FileRequired, FileAllowed
+from wtforms import StringField, PasswordField, SelectField, BooleanField, TextAreaField, DecimalField, IntegerField, DateTimeLocalField, DateField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, NumberRange
 
 
@@ -7,6 +8,26 @@ class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     remember = BooleanField('Remember Me')
+
+
+class DocumentUploadForm(FlaskForm):
+    doc_type = SelectField('Document type', choices=[
+        ('licence', 'Licence'), ('medical', 'Medical licence'),
+        ('id', 'ID'), ('rtf', 'RTF certificate')], validators=[DataRequired()])
+    expiry_date = DateField('Expiry date', validators=[DataRequired()])
+    file = FileField('File', validators=[
+        FileRequired(), FileAllowed(['pdf', 'jpg', 'jpeg', 'png'], 'PDF or image (jpg/png) only.')])
+    student_id = SelectField('Student', coerce=int, validators=[Optional()],
+                             validate_choice=False)  # shown to planners only; students upload for themselves
+
+
+class ForgotPasswordForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('New Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
 
 
 class RegistrationForm(FlaskForm):
@@ -66,3 +87,11 @@ class SettingsForm(FlaskForm):
     op_day_fri = BooleanField('Friday')
     op_day_sat = BooleanField('Saturday')
     op_day_sun = BooleanField('Sunday')
+    doc_expiry_warn_days = IntegerField('Document expiry warning (days)', validators=[Optional(), NumberRange(min=1, max=365)])
+    # SMTP (admin-only) — for password-reset emails.
+    smtp_host = StringField('SMTP host', validators=[Optional(), Length(max=128)])
+    smtp_port = IntegerField('SMTP port', validators=[Optional(), NumberRange(min=1, max=65535)])
+    smtp_user = StringField('SMTP username', validators=[Optional(), Length(max=128)])
+    smtp_pass = PasswordField('SMTP password', validators=[Optional(), Length(max=256)])
+    smtp_from = StringField('From address', validators=[Optional(), Length(max=128)])
+    smtp_tls = BooleanField('Use STARTTLS')

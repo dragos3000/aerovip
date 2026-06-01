@@ -94,22 +94,34 @@ def availability():
     tz_mode = session.get('tz', 'lt')
     disp_shift = weekutils.utc_shift_hours(open_days[0]) if (tz_mode == 'utc' and open_days) else 0
 
-    # Heat overlay: how booked each (date, hour) already is this week, so the student
-    # can steer toward freer hours. Counts OTHER students' bookings, shaded against
-    # per-hour capacity (min of active instructors / available aircraft).
+    # Heat overlay: how contended each (date, hour) is, so the student can steer
+    # toward freer hours. Counts OTHER students' demand for this week — both
+    # confirmed bookings AND painted availability (so it works on the upcoming week
+    # before any flight is booked) — shaded against per-hour capacity (min of active
+    # instructors / available aircraft).
     days_all = weekutils.week_dates(iso_year, iso_week)
     ws = datetime.combine(days_all[0], datetime.min.time())
     we = datetime.combine(days_all[6] + timedelta(days=1), datetime.min.time())
     capacity = min(User.query.filter_by(role='instructor', is_active=True).count(),
                    Aircraft.query.filter_by(is_available=True).count())
-    counts = {}
+    # Per (date,hour): set of OTHER student ids interested (booked or available), so a
+    # student isn't double-counted when they both booked and marked availability.
+    interested = {}
     for b in Booking.query.filter(Booking.status != 'cancelled',
                                   Booking.start_time >= ws, Booking.start_time < we,
                                   Booking.student_id != current_user.id).all():
         d = b.start_time.date().isoformat()
         end_h = b.end_time.hour + (24 if b.end_time.date() > b.start_time.date() else 0)
         for hh in range(b.start_time.hour, end_h):
-            counts[f'{d}|{hh}'] = counts.get(f'{d}|{hh}', 0) + 1
+            interested.setdefault(f'{d}|{hh}', set()).add(b.student_id)
+    other_subs = AvailabilitySubmission.query.filter(
+        AvailabilitySubmission.iso_year == iso_year,
+        AvailabilitySubmission.iso_week == iso_week,
+        AvailabilitySubmission.student_id != current_user.id).all()
+    for sub in other_subs:
+        for s in sub.slots:
+            interested.setdefault(f'{s.slot_date.isoformat()}|{s.hour}', set()).add(sub.student_id)
+    counts = {k: len(v) for k, v in interested.items()}
     half = (capacity + 1) // 2 if capacity else 1
     busy_level = {}
     for key, c in counts.items():
@@ -216,21 +228,36 @@ def save_availability():
         if d in valid_dates and 0 <= h <= 23 and not _slot_in_window(d, h):
             return jsonify({'ok': False, 'error': _t('err.outside_operating_hours')}), 400
 
-    # Can't request more flight hours than the number of available slots painted
-    # (each slot is one hour). 2 squares marked => at most 2h can be requested.
-    avail_slots = set()
+    # Each painted cell is one hour. Day-type hours (PPL-A/Buildup/AUPRT) must be
+    # backed by DAYTIME (operating-hours) cells; Night hours by AFTER-SUNSET cells —
+    # the home field is closed at night, so day training can't sit in the night window.
+    day_cells = set()
+    night_cells = set()
     for slot in data.get('slots', []):
+        d = slot.get('date')
         try:
             h = int(slot.get('hour'))
         except (TypeError, ValueError):
             continue
-        if slot.get('date') in valid_dates and 0 <= h <= 23:
-            avail_slots.add((slot.get('date'), h))
-    total_req = sum(_num(r.get('hours')) for r in data.get('requests', [])
-                    if r.get('hour_type') in HOUR_TYPES and _num(r.get('hours')) > 0)
-    if total_req > len(avail_slots) + 1e-6:
-        return jsonify({'ok': False, 'error': _t('err.hours_exceed_avail').format(
-            requested=f'{total_req:g}', available=len(avail_slots))}), 400
+        if d not in valid_dates or not (0 <= h <= 23):
+            continue
+        if h >= sunset_hour.get(d, 99):
+            night_cells.add((d, h))
+        else:
+            start, end = op_window.get(d, (weekutils.GRID_START_HOUR, weekutils.GRID_END_HOUR))
+            if start <= h < end:
+                day_cells.add((d, h))
+    night_req = sum(_num(r.get('hours')) for r in data.get('requests', [])
+                    if r.get('hour_type') == 'Night' and _num(r.get('hours')) > 0)
+    day_req = sum(_num(r.get('hours')) for r in data.get('requests', [])
+                  if r.get('hour_type') in HOUR_TYPES and r.get('hour_type') != 'Night'
+                  and _num(r.get('hours')) > 0)
+    if day_req > len(day_cells) + 1e-6:
+        return jsonify({'ok': False, 'error': _t('err.daytime_hours_exceed').format(
+            requested=f'{day_req:g}', available=len(day_cells))}), 400
+    if night_req > len(night_cells) + 1e-6:
+        return jsonify({'ok': False, 'error': _t('err.night_hours_exceed').format(
+            requested=f'{night_req:g}', available=len(night_cells))}), 400
 
     submission = AvailabilitySubmission.query.filter_by(
         student_id=current_user.id, iso_year=iso_year, iso_week=iso_week

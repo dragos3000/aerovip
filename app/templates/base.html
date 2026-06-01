@@ -84,6 +84,13 @@
                     <i class="bi bi-journal-richtext"></i> {{ t('nav.logbook') }}
                 </a>
             </li>
+            {% if current_user.role == 'student' or current_user.is_planner %}
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('documents.') %}active{% endif %}" href="{{ url_for('documents.index') }}">
+                    <i class="bi bi-file-earmark-medical"></i> {{ t('nav.documents') }}
+                </a>
+            </li>
+            {% endif %}
         </ul>
 
         <div class="nav-section">{{ t('nav.fleet') }}</div>

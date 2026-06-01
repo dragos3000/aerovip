@@ -13,17 +13,18 @@ fleet management, and live airfield/weather information. Installable as a PWA.
     for 3h while marking only 2 squares.
   - **PPL-A is exclusive** — unlicensed PPL-A training can't be combined with
     Buildup / AUPRT / Night in the same week.
-  - **Night needs post-sunset availability** — Night hours require at least one
-    marked slot at/after the airfield's sunset (the grid shades the night window).
-  - **Operating hours** — daytime slots must fall inside the airfield's configured
-    operating window (set in UTC); cells outside it are closed/non-pickable. The
-    exception is **after-sunset (Night) cells**, which stay selectable because night
-    training is flown at a non-stop airport elsewhere.
+  - **Day vs night windows** — day-type hours (PPL-A / Buildup / AUPRT) must be
+    backed by **daytime** cells inside the configured operating window (set in UTC);
+    Night hours must be backed by **after-sunset** cells. The night window stays
+    pickable outside operating hours because night training is flown at a non-stop
+    airport elsewhere. Validated per-window (day-types can't sit in the night window
+    and vice-versa).
   - **Operating days** — only the configured operating weekdays are pickable; unused
     days are removed from both the availability grid and the planning board.
-  - **Busy-hour heat** — each hour cell carries a discrete bottom bar shaded by how
-    booked that slot already is (vs. instructor/aircraft capacity), nudging students
-    toward freer hours.
+  - **Busy-hour heat** — each hour cell is discreetly tinted by how contended it is —
+    the number of *other* students who have booked **or** marked availability there,
+    shaded against instructor/aircraft capacity — nudging students toward freer hours
+    (works on the upcoming week before any flight is booked).
 - **Auto-scheduler (linear program)** — a PuLP/CBC integer program solves the
   many-students/few-resources matching fairly (everyone's first hours weighted
   highest), with toggles to keep-vs-rebuild, distribute over planes, distribute over
@@ -37,6 +38,13 @@ fleet management, and live airfield/weather information. Installable as a PWA.
 - **EASA pilot logbook** — instructors log flown hours per student/day (total
   auto-calculated from times, shown as H:MM); PPL-A flights get the EASA exercises
   multi-select; filter by student/period; sortable, responsive DataTables.
+- **Student documents** — Licence, Medical, ID and RTF certificate uploads (PDF/image)
+  with expiry dates. Students manage their own; admins/managers manage any student's
+  (download is owner-or-planner only). Upload history is kept; the dashboard shows
+  **expiry alerts** (expired / expiring) with a configurable warning window.
+- **Password reset by email** — a "Forgot password?" link emails a time-limited
+  (1 hour) reset link. SMTP is configured in the admin Settings UI; no user
+  enumeration (the same response whether or not the address exists).
 - **Roles**: Student, Instructor, **Manager**, Admin. Planners (admin + manager)
   build the schedule; instructors log flights and see their assignments. Managers
   can also reach **Settings** (operating hours/days, ICAO, airfield info) — only the
@@ -100,6 +108,9 @@ Managed via **Settings** in the web UI (admins + managers; API key / URLs are ad
 
 - **Operating hours (UTC)** — the daytime window students may mark availability in
 - **Operating days** — per-weekday toggles; unused days drop off the grid and board
+- **Document expiry warning (days)** — how early the dashboard warns before expiry
+- **Email (SMTP)** — host / port / user / password / from / STARTTLS for password-reset
+  emails (admin-only; password left untouched if the field is blank)
 - **CheckWX API key** — free key from [checkwx.com](https://www.checkwx.com) for METAR/TAF/NOTAMs (admin-only)
 - **ICAO airport code** — for weather/NOTAMs (e.g. LRPW falls back to nearest station LROP)
 - **Airfield weather URL** — JSON endpoint for the local station (admin-only)
@@ -107,7 +118,8 @@ Managed via **Settings** in the web UI (admins + managers; API key / URLs are ad
 - **Airfield map** — Google My Maps embed URL (separate RO / EN maps, admin-only)
 
 Settings are stored in the database (the `.env` `CHECKWX_API_KEY` is only a
-fallback). Saving triggers an immediate weather-cache refresh.
+fallback). Saving triggers an immediate weather-cache refresh. Uploaded documents are
+stored under `instance/uploads/` (gitignored), max 10 MB, PDF/JPG/PNG.
 
 ## Deployment notes
 

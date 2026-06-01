@@ -99,13 +99,14 @@ def create_app(config_class=Config):
         tz_suffix = ' UTC' if mode == 'utc' else ''
         return dict(tz_mode=mode, disp=disp, tz_suffix=tz_suffix)
 
-    from app.routes import auth, main, admin, scheduling, aircraft, logbook
+    from app.routes import auth, main, admin, scheduling, aircraft, logbook, documents
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(scheduling.bp)
     app.register_blueprint(aircraft.bp)
     app.register_blueprint(logbook.bp)
+    app.register_blueprint(documents.bp)
 
     # Start background weather/NOTAMs cache refresh thread
     from app.weather_cache import start_background_refresh

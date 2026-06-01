@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ t('auth.sign_in') }} - Aero Vip Academy{% endblock %}
+{% block title %}{{ t('auth.forgot_password') }} - Aero Vip Academy{% endblock %}
 
 {% block public_content %}
 <div class="auth-page">
     <div class="auth-card text-center">
-        <!-- Language selector -->
         <div class="d-flex justify-content-end mb-2">
             <div class="btn-group btn-group-sm" role="group">
                 <a href="{{ url_for('main.set_language', lang='ro') }}"
@@ -15,7 +14,8 @@
         </div>
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Aero Vip Academy" class="logo-auth"
              style="background: #0a1628; padding: 1rem; border-radius: 12px;">
-        <h4 class="fw-bold mb-4">{{ t('auth.welcome_back') }}</h4>
+        <h4 class="fw-bold mb-2">{{ t('auth.forgot_password') }}</h4>
+        <p class="text-muted small mb-4">{{ t('auth.forgot_intro') }}</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -25,29 +25,18 @@
         {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('auth.login') }}">
+        <form method="POST" action="{{ url_for('auth.forgot_password') }}">
             {{ form.hidden_tag() }}
             <div class="mb-3 text-start">
                 <label class="form-label fw-semibold">{{ t('form.email') }}</label>
                 {{ form.email(class="form-control", placeholder="you@example.com") }}
             </div>
-            <div class="mb-3 text-start">
-                <label class="form-label fw-semibold">{{ t('form.password') }}</label>
-                {{ form.password(class="form-control", placeholder="...") }}
-            </div>
-            <div class="mb-3 text-start">
-                <div class="form-check">
-                    {{ form.remember(class="form-check-input") }}
-                    <label class="form-check-label">{{ t('auth.remember_me') }}</label>
-                </div>
-            </div>
             <button type="submit" class="btn btn-av-primary w-100 py-2">
-                <i class="bi bi-box-arrow-in-right me-2"></i>{{ t('auth.sign_in') }}
+                <i class="bi bi-envelope me-2"></i>{{ t('auth.send_reset_link') }}
             </button>
         </form>
-        <p class="text-end small mt-2 mb-0"><a href="{{ url_for('auth.forgot_password') }}">{{ t('auth.forgot_password') }}</a></p>
         <hr>
-        <p class="text-muted small mb-0">{{ t('auth.no_account') }} <a href="{{ url_for('auth.register') }}">{{ t('auth.register_here') }}</a></p>
+        <p class="text-muted small mb-0"><a href="{{ url_for('auth.login') }}">{{ t('auth.back_to_login') }}</a></p>
     </div>
 </div>
 {% endblock %}

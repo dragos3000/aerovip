@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, jsonify, current_app, session, redirect, request, url_for, send_from_directory
 from flask_login import login_required, current_user
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import requests
-from app.models import Booking, User, Aircraft, Setting
+from app.models import Booking, User, Aircraft, Setting, StudentDocument, DOC_TYPES
 from app.weather_cache import get_cached_weather, get_cached_notams
 from app.airfield import get_airfield_info, get_airfield_map_url
 from app.sun import sun_times
@@ -125,7 +125,35 @@ def dashboard():
 
     icao = Setting.get('icao_airport', '') or current_app.config.get('ICAO_AIRPORT', 'LRBS')
 
+    # Document expiry alerts: the CURRENT document per (student, type) = latest by
+    # expiry. Flag expired / expiring within the configured window. Students see
+    # their own; planners see all students'.
+    try:
+        warn_days = int(Setting.get('doc_expiry_warn_days', '30') or 30)
+    except ValueError:
+        warn_days = 30
+    today_d = date.today()
+    doc_q = StudentDocument.query
+    if not current_user.is_planner:
+        doc_q = doc_q.filter(StudentDocument.student_id == current_user.id)
+    current_doc = {}   # (student_id, doc_type) -> latest doc
+    for d in doc_q.order_by(StudentDocument.expiry_date.desc()).all():
+        current_doc.setdefault((d.student_id, d.doc_type), d)
+    doc_alerts = []
+    for d in current_doc.values():
+        days = (d.expiry_date - today_d).days
+        if days < 0:
+            status = 'expired'
+        elif days <= warn_days:
+            status = 'expiring'
+        else:
+            continue
+        doc_alerts.append({'doc': d, 'days': days, 'status': status,
+                           'student': d.student.full_name if d.student else '—'})
+    doc_alerts.sort(key=lambda a: a['days'])
+
     return render_template('dashboard.html',
+                           doc_alerts=doc_alerts,
                            bookings=my_bookings,
                            flights_by_aircraft=flights_by_aircraft,
                            todays_flights=todays_flights,

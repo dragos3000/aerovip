@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ t('nav.documents') }} - Aero Vip Academy{% endblock %}
+{% block page_title %}{{ t('nav.documents') }}{% endblock %}
+
+{% macro status_badge(doc) %}
+    {% set days = (doc.expiry_date - today).days %}
+    {% if days < 0 %}
+        <span class="badge bg-danger">{{ t('doc.expired') }}</span>
+    {% elif days <= warn_days %}
+        <span class="badge bg-warning text-dark">{{ t('doc.expiring') }} · {{ days }}{{ t('doc.days_short') }}</span>
+    {% else %}
+        <span class="badge bg-success-subtle text-success border border-success-subtle">{{ t('doc.valid') }}</span>
+    {% endif %}
+{% endmacro %}
+
+{% macro doc_row(doc) %}
+<tr>
+    <td>{{ t('doc.type_' + doc.doc_type) }}</td>
+    <td><a href="{{ url_for('documents.download', doc_id=doc.id) }}"><i class="bi bi-paperclip me-1"></i>{{ doc.original_name }}</a></td>
+    <td>{{ doc.expiry_date.strftime('%d %b %Y') }}</td>
+    <td>{{ status_badge(doc) }}</td>
+    <td class="text-end">
+        <form method="POST" action="{{ url_for('documents.delete', doc_id=doc.id) }}" class="d-inline"
+              onsubmit="return confirm('{{ t('doc.delete_confirm') }}');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+    </td>
+</tr>
+{% endmacro %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-upload me-2"></i>{{ t('doc.upload') }}</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('documents.upload') }}" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    {% if is_planner %}
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">{{ t('doc.student') }}</label>
+                        {{ form.student_id(class="form-select") }}
+                    </div>
+                    {% endif %}
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">{{ t('doc.type') }}</label>
+                        {{ form.doc_type(class="form-select") }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">{{ t('doc.expiry_date') }}</label>
+                        {{ form.expiry_date(class="form-control", type="date") }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">{{ t('doc.file') }}</label>
+                        {{ form.file(class="form-control") }}
+                        <div class="form-text">{{ t('doc.file_help') }}</div>
+                    </div>
+                    <button type="submit" class="btn btn-av-primary w-100"><i class="bi bi-upload me-1"></i>{{ t('doc.upload') }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        {% if is_planner %}
+            {% if not groups %}
+            <div class="card"><div class="card-body text-muted">{{ t('doc.none') }}</div></div>
+            {% endif %}
+            {% for g in groups %}
+            <div class="card mb-3">
+                <div class="card-header py-2"><i class="bi bi-person me-2"></i>{{ g.student.full_name if g.student else '—' }}</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead><tr><th>{{ t('doc.type') }}</th><th>{{ t('doc.file') }}</th><th>{{ t('doc.expiry_date') }}</th><th>{{ t('doc.status') }}</th><th></th></tr></thead>
+                        <tbody>{% for doc in g.docs %}{{ doc_row(doc) }}{% endfor %}</tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card">
+                <div class="card-header py-2"><i class="bi bi-folder me-2"></i>{{ t('doc.my_documents') }}</div>
+                <div class="card-body p-0">
+                    {% if my_docs %}
+                    <table class="table table-sm mb-0 align-middle">
+                        <thead><tr><th>{{ t('doc.type') }}</th><th>{{ t('doc.file') }}</th><th>{{ t('doc.expiry_date') }}</th><th>{{ t('doc.status') }}</th><th></th></tr></thead>
+                        <tbody>{% for doc in my_docs %}{{ doc_row(doc) }}{% endfor %}</tbody>
+                    </table>
+                    {% else %}
+                    <div class="p-3 text-muted">{{ t('doc.none') }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

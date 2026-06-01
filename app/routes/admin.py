@@ -111,6 +111,19 @@ def settings():
             field = getattr(form, 'op_day_' + abbr)
             Setting.set(operating.DAY_SETTING_KEYS[wd], '1' if field.data else '0',
                         'Airfield operates on ' + abbr.capitalize())
+        # Document expiry warning window (days) — managers too.
+        if form.doc_expiry_warn_days.data:
+            Setting.set('doc_expiry_warn_days', str(form.doc_expiry_warn_days.data),
+                        'Days before expiry to start warning about documents')
+        # SMTP (admin-only). Leave the password untouched when the field is blank.
+        if can_edit_api:
+            Setting.set('smtp_host', (form.smtp_host.data or '').strip(), 'SMTP host')
+            Setting.set('smtp_port', str(form.smtp_port.data or 587), 'SMTP port')
+            Setting.set('smtp_user', (form.smtp_user.data or '').strip(), 'SMTP username')
+            if form.smtp_pass.data:
+                Setting.set('smtp_pass', form.smtp_pass.data, 'SMTP password')
+            Setting.set('smtp_from', (form.smtp_from.data or '').strip(), 'Email From address')
+            Setting.set('smtp_tls', '1' if form.smtp_tls.data else '0', 'SMTP STARTTLS')
         save_airfield_info(request.form)
         # Apply the new weather config soon, in the background (don't block the save on a slow API).
         from flask import current_app
@@ -129,6 +142,12 @@ def settings():
     open_days = operating.open_days_map()
     for wd, abbr in enumerate(operating.DAY_ABBR):
         getattr(form, 'op_day_' + abbr).data = open_days[wd]
+    form.doc_expiry_warn_days.data = int(Setting.get('doc_expiry_warn_days', '30') or 30)
+    form.smtp_host.data = Setting.get('smtp_host', '')
+    form.smtp_port.data = int(Setting.get('smtp_port', '587') or 587)
+    form.smtp_user.data = Setting.get('smtp_user', '')
+    form.smtp_from.data = Setting.get('smtp_from', '')
+    form.smtp_tls.data = str(Setting.get('smtp_tls', '1')) in ('1', 'true', 'True', 'on')
 
     return render_template('admin/settings.html', form=form,
                            can_edit_api=can_edit_api,

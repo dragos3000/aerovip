@@ -16,3 +16,6 @@ class Config:
     # users out. A unique name fixes it (no path scoping needed, avoids prefix issues).
     SESSION_COOKIE_NAME = 'aerovip_session'
     SESSION_COOKIE_SAMESITE = 'Lax'
+
+    # Max upload size for student documents (10 MB).
+    MAX_CONTENT_LENGTH = 10 * 1024 * 1024

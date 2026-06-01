@@ -21,11 +21,14 @@
         background: repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 5px,#e9ebee 5px,#e9ebee 10px);
         cursor: not-allowed;
     }
-    /* Discrete "how busy" heat: a thin bottom bar by how booked the hour already
-       is (layers over any cell background, including selected/night). */
-    .avail-grid td.cell.b1 { box-shadow: inset 0 -3px 0 rgba(245,200,90,.65); }
-    .avail-grid td.cell.b2 { box-shadow: inset 0 -3px 0 rgba(240,150,55,.85); }
-    .avail-grid td.cell.b3 { box-shadow: inset 0 -4px 0 rgba(220,53,69,.9); }
+    /* Discrete "how busy" heat: the cell background is tinted by how booked the
+       hour already is. Selected cells stay blue (busy doesn't apply to .on). */
+    .avail-grid td.cell.b1:not(.on) { background: #fff3d6; }
+    .avail-grid td.cell.b2:not(.on) { background: #ffdfae; }
+    .avail-grid td.cell.b3:not(.on) { background: #ffc9bd; }
+    .avail-grid td.cell.b1:not(.on):hover,
+    .avail-grid td.cell.b2:not(.on):hover,
+    .avail-grid td.cell.b3:not(.on):hover { filter: brightness(0.95); }
     .req-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .5rem; }
 </style>
 {% endblock %}
@@ -59,7 +62,7 @@
                     <i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}
                     <span class="ms-2"><span style="display:inline-block;width:12px;height:12px;background:#dbe3f1;border:1px solid #ccc;vertical-align:middle"></span>
                     <i class="bi bi-moon-stars ms-1"></i> {{ t('sched.night_after_sunset') }}</span>
-                    <span class="ms-2"><span style="display:inline-block;width:14px;height:10px;border-bottom:3px solid rgba(240,150,55,.85);vertical-align:middle"></span> {{ t('sched.busy_hint') }}</span>
+                    <span class="ms-2"><span style="display:inline-block;width:12px;height:12px;background:#ffdfae;border:1px solid #ccc;vertical-align:middle"></span> {{ t('sched.busy_hint') }}</span>
                 </p>
                 <div class="table-responsive">
                     <table class="avail-grid">
@@ -203,13 +206,22 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     });
     const msg = document.getElementById('saveMsg');
     msg.textContent = '';
-    // Can't ask for more hours than the number of squares marked (each square = 1h).
-    const totalReq = requests.reduce((a, r) => a + r.hours, 0);
-    if (totalReq > slots.length + 1e-6) {
+    // Day-type hours need daytime cells; Night hours need after-sunset (night) cells.
+    let dayCells = 0, nightCells = 0;
+    document.querySelectorAll('td.cell.on').forEach(c => {
+        if (c.classList.contains('night')) nightCells++; else dayCells++;
+    });
+    let dayReq = 0, nightReq = 0;
+    requests.forEach(r => { if (r.hour_type === 'Night') nightReq += r.hours; else dayReq += r.hours; });
+    const r1 = Math.round(dayReq * 10) / 10, r2 = Math.round(nightReq * 10) / 10;
+    if (dayReq > dayCells + 1e-6) {
         msg.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>'
-            + {{ t('err.hours_exceed_avail')|tojson }}
-                .replace('{requested}', (Math.round(totalReq * 10) / 10)).replace('{available}', slots.length)
-            + '</span>';
+            + {{ t('err.daytime_hours_exceed')|tojson }}.replace('{requested}', r1).replace('{available}', dayCells) + '</span>';
+        return;
+    }
+    if (nightReq > nightCells + 1e-6) {
+        msg.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>'
+            + {{ t('err.night_hours_exceed')|tojson }}.replace('{requested}', r2).replace('{available}', nightCells) + '</span>';
         return;
     }
     fetch('{{ url_for("scheduling.save_availability") }}', {

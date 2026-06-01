@@ -65,6 +65,51 @@
 
                         <div class="col-12">
                             <hr>
+                            <h6 class="fw-bold mb-0"><i class="bi bi-file-earmark-check me-1"></i>{{ t('settings.documents_title') }}</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('settings.doc_warn_days') }}</label>
+                            {{ form.doc_expiry_warn_days(class="form-control", type="number", min="1", max="365") }}
+                            <div class="form-text">{{ t('settings.doc_warn_help') }}</div>
+                        </div>
+
+                        {% if can_edit_api %}
+                        <div class="col-12">
+                            <hr>
+                            <h6 class="fw-bold mb-0"><i class="bi bi-envelope-at me-1"></i>{{ t('settings.email_title') }}</h6>
+                            <div class="form-text">{{ t('settings.email_help') }}</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">{{ t('settings.smtp_host') }}</label>
+                            {{ form.smtp_host(class="form-control", placeholder="smtp.gmail.com") }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">{{ t('settings.smtp_port') }}</label>
+                            {{ form.smtp_port(class="form-control", type="number", placeholder="587") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('settings.smtp_user') }}</label>
+                            {{ form.smtp_user(class="form-control", autocomplete="off") }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">{{ t('settings.smtp_pass') }}</label>
+                            {{ form.smtp_pass(class="form-control", autocomplete="new-password", placeholder="••••••••") }}
+                            <div class="form-text">{{ t('settings.smtp_pass_help') }}</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">{{ t('settings.smtp_from') }}</label>
+                            {{ form.smtp_from(class="form-control", placeholder="no-reply@aerovip.ro") }}
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                {{ form.smtp_tls(class="form-check-input") }}
+                                <label class="form-check-label" for="{{ form.smtp_tls.id }}">{{ t('settings.smtp_tls') }}</label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="col-12">
+                            <hr>
                             <h6 class="fw-bold mb-0"><i class="bi bi-geo-alt me-1"></i>{{ t('settings.airfield_info') }}</h6>
                         </div>
                         {% for f in airfield_info %}

@@ -268,3 +268,29 @@ class LogbookEntry(db.Model):
 
     def __repr__(self):
         return f'<LogbookEntry {self.flight_date} s{self.student_id} {self.total_time}h>'
+
+
+# Student document types (each tracks an expiry date). Key -> label translation key.
+DOC_TYPES = ['licence', 'medical', 'id', 'rtf']
+
+
+class StudentDocument(db.Model):
+    """An uploaded student document (licence / medical / ID / RTF) with an expiry
+    date. History is kept — re-uploading a type adds a new row; the latest per type
+    (by expiry) drives the dashboard expiry alerts."""
+    __tablename__ = 'student_documents'
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    doc_type = db.Column(db.String(16), nullable=False)            # licence / medical / id / rtf
+    stored_name = db.Column(db.String(128), nullable=False)        # on-disk filename
+    original_name = db.Column(db.String(256), nullable=False)      # for download
+    expiry_date = db.Column(db.Date, nullable=False, index=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    student = db.relationship('User', foreign_keys=[student_id], backref='documents')
+    uploaded_by = db.relationship('User', foreign_keys=[uploaded_by_id])
+
+    def __repr__(self):
+        return f'<StudentDocument {self.doc_type} s{self.student_id} exp{self.expiry_date}>'
