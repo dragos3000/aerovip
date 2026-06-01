@@ -36,6 +36,13 @@ def _deliver(app, user_ids, title, body, url):
         db.session.commit()
 
 
+def planner_ids():
+    """Active admin/manager user ids (recipients for plan/booking notifications)."""
+    from app.models import User
+    return [u.id for u in User.query.filter(User.role.in_(('admin', 'manager')),
+                                            User.is_active == True).all()]  # noqa: E712
+
+
 def send_push(user_id, title, body, url=None):
     send_push_many([user_id], title, body, url)
 

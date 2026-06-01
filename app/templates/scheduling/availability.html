@@ -183,16 +183,15 @@ function addRequest(type, hours) {
 // PPL-A (unlicensed training) is not compatible with Buildup/AUPRT/Night.
 function enforceExclusivity(sel) {
     const others = [...document.querySelectorAll('.req-type')].filter(s => s !== sel);
-    if (sel.value === 'PPL-A') {
-        const conflict = others.filter(s => s.value !== 'PPL-A');
-        if (conflict.length && !confirm({{ t('sched.ppl_confirm')|tojson }})) { sel.value = sel.dataset.prev; return; }
+    const isPpl = sel.value === 'PPL-A';
+    const conflict = isPpl ? others.filter(s => s.value !== 'PPL-A') : others.filter(s => s.value === 'PPL-A');
+    if (!conflict.length) { sel.dataset.prev = sel.value; return; }
+    const msg = isPpl ? {{ t('sched.ppl_confirm')|tojson }} : {{ t('sched.other_confirm')|tojson }};
+    appConfirm(msg, { danger: true }).then(function (ok) {
+        if (!ok) { sel.value = sel.dataset.prev; return; }
         conflict.forEach(s => s.closest('.req-row').remove());
-    } else {
-        const ppl = others.filter(s => s.value === 'PPL-A');
-        if (ppl.length && !confirm({{ t('sched.other_confirm')|tojson }})) { sel.value = sel.dataset.prev; return; }
-        ppl.forEach(s => s.closest('.req-row').remove());
-    }
-    sel.dataset.prev = sel.value;
+        sel.dataset.prev = sel.value;
+    });
 }
 
 document.getElementById('addReq').addEventListener('click', () => {

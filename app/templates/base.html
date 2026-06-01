@@ -194,6 +194,23 @@
         <span title="build">v{{ app_version }}</span>
     </footer>
 
+    <!-- App confirm/alert modal (replaces native confirm()/alert()) -->
+    <div class="modal fade" id="appConfirmModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title acm-title">{{ t('modal.confirm_title') }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body acm-body"></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm acm-cancel" data-bs-dismiss="modal">{{ t('form.cancel') }}</button>
+            <button type="button" class="btn btn-av-primary btn-sm acm-ok">{{ t('modal.ok') }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -233,6 +250,44 @@
                 a.addEventListener('click', close);
             });
         })();
+
+        // ---- In-app confirm/alert modal (replaces native confirm()/alert()) ----
+        window.appConfirm = function (message, opts) {
+            opts = opts || {};
+            return new Promise(function (resolve) {
+                var el = document.getElementById('appConfirmModal');
+                if (!el || !window.bootstrap) { resolve(window.confirm(message)); return; }
+                el.querySelector('.acm-body').textContent = message || '';
+                var ok = el.querySelector('.acm-ok');
+                var cancel = el.querySelector('.acm-cancel');
+                cancel.classList.toggle('d-none', opts.alert === true);
+                ok.className = 'btn btn-sm acm-ok ' + (opts.danger ? 'btn-danger' : 'btn-av-primary');
+                var m = bootstrap.Modal.getOrCreateInstance(el);
+                var done = false;
+                function finish(val) {
+                    if (done) return; done = true;
+                    ok.removeEventListener('click', onOk);
+                    el.removeEventListener('hidden.bs.modal', onHide);
+                    resolve(val);
+                }
+                function onOk() { finish(true); m.hide(); }
+                function onHide() { finish(false); }
+                ok.addEventListener('click', onOk);
+                el.addEventListener('hidden.bs.modal', onHide);
+                m.show();
+            });
+        };
+        window.appAlert = function (message) { return window.appConfirm(message, { alert: true }); };
+        // Any form with data-confirm: intercept submit and confirm via the modal.
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (form.matches && form.matches('[data-confirm]') && !form.dataset.confirmed) {
+                e.preventDefault();
+                window.appConfirm(form.getAttribute('data-confirm'), { danger: true }).then(function (ok) {
+                    if (ok) { form.dataset.confirmed = '1'; form.submit(); }
+                });
+            }
+        });
     </script>
     {% if current_user.is_authenticated and push_enabled %}
     <script>

@@ -42,7 +42,7 @@
                     <td>
                         {% if b.status == 'confirmed' %}
                         <form method="POST" action="{{ url_for('scheduling.cancel', booking_id=b.id) }}" class="d-inline"
-                              onsubmit="return confirm('{{ t('misc.confirm_cancel') }}')">
+                              data-confirm="{{ t('misc.confirm_cancel') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i></button>
                         </form>

@@ -85,7 +85,7 @@
                     <td class="text-nowrap">
                         <a href="{{ url_for('logbook.edit', entry_id=e.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
                         <form method="POST" action="{{ url_for('logbook.delete', entry_id=e.id) }}" class="d-inline"
-                              onsubmit="return confirm('{{ t('logbook.confirm_delete') }}')">
+                              data-confirm="{{ t('logbook.confirm_delete') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                         </form>

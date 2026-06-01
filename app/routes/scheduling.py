@@ -650,15 +650,22 @@ def auto_apply():
         created += 1
     db.session.commit()
 
-    # Notify each affected student that their weekly plan is published.
+    # Notify everyone affected that the weekly plan is published.
     if created:
         from app import push
         from collections import Counter
+        my_url = url_for('scheduling.my_schedule')
         per_student = Counter(int(f['student_id']) for f in flights if f.get('student_id'))
         for sid, n in per_student.items():
             push.send_push(sid, _t('push.plan_title'),
-                           _t('push.plan_body').format(week=iso_week, n=n),
-                           url=url_for('scheduling.my_schedule'))
+                           _t('push.plan_body').format(week=iso_week, n=n), url=my_url)
+        per_instr = Counter(int(f['instructor_id']) for f in flights if f.get('instructor_id'))
+        for iid, n in per_instr.items():
+            push.send_push(iid, _t('push.plan_title'),
+                           _t('push.plan_instr_body').format(week=iso_week, n=n), url=my_url)
+        push.send_push_many(push.planner_ids(), _t('push.plan_title'),
+                            _t('push.plan_planner_body').format(week=iso_week, n=created),
+                            url=url_for('scheduling.plan'))
     return jsonify({'ok': True, 'created': created, 'skipped': skipped})
 
 
@@ -781,13 +788,19 @@ def assign():
         db.session.add(booking)
     db.session.commit()
 
-    # Notify the student that a flight was scheduled/changed.
+    # Notify student, instructor and planners that a flight was scheduled/changed.
     from app import push
     from app.models import Aircraft as _Ac
     ac = db.session.get(_Ac, aircraft_id)
-    push.send_push(student_id, _t('push.flight_title'),
-                   f"{slot_date:%d %b} · {start_time:%H:%M}–{end_time:%H:%M}" + (f" · {ac.registration}" if ac else ''),
-                   url=url_for('scheduling.my_schedule'))
+    stu = db.session.get(User, student_id)
+    when = f"{slot_date:%d %b} · {start_time:%H:%M}–{end_time:%H:%M}" + (f" · {ac.registration}" if ac else '')
+    my_url = url_for('scheduling.my_schedule')
+    plan_url = url_for('scheduling.plan')
+    push.send_push(student_id, _t('push.flight_title'), when, url=my_url)
+    push.send_push(instructor_id, _t('push.flight_title'),
+                   f"{stu.full_name if stu else ''} · {when}", url=my_url)
+    push.send_push_many([p for p in push.planner_ids() if p != current_user.id],
+                        _t('push.flight_title'), f"{stu.full_name if stu else ''} · {when}", url=plan_url)
 
     return jsonify({'ok': True, 'booking': _booking_dict(booking), 'within_availability': within})
 
@@ -803,8 +816,24 @@ def cancel(booking_id):
     else:
         booking.status = 'cancelled'
         db.session.commit()
+        _notify_booking_cancelled(booking)
         flash('Booking cancelled.', 'success')
     return redirect(request.referrer or url_for('scheduling.plan'))
+
+
+def _notify_booking_cancelled(booking):
+    """Push to student, instructor and planners that a flight was cancelled/removed."""
+    from app import push
+    stu = db.session.get(User, booking.student_id)
+    when = f"{booking.start_time:%d %b} · {booking.start_time:%H:%M}"
+    push.send_push(booking.student_id, _t('push.flight_cancelled_title'), when,
+                   url=url_for('scheduling.my_schedule'))
+    if booking.instructor_id:
+        push.send_push(booking.instructor_id, _t('push.flight_cancelled_title'),
+                       f"{stu.full_name if stu else ''} · {when}", url=url_for('scheduling.my_schedule'))
+    push.send_push_many([p for p in push.planner_ids() if p != current_user.id],
+                        _t('push.flight_cancelled_title'),
+                        f"{stu.full_name if stu else ''} · {when}", url=url_for('scheduling.plan'))
 
 
 @bp.route('/plan/booking/<int:booking_id>/delete', methods=['POST'])
@@ -814,6 +843,7 @@ def delete_booking(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return jsonify({'ok': False, 'error': 'Booking not found.'}), 404
+    _notify_booking_cancelled(booking)
     db.session.delete(booking)
     db.session.commit()
     return jsonify({'ok': True})

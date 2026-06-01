@@ -762,25 +762,29 @@ function moveBooking(bk, aircraftId, date, hour) {
         start: fmtMin(hour * 60), end: fmtMin(hour * 60 + dur),
         hour_type: bk.hour_type, instructor_id: bk.instructor_id, notes: bk.notes,
     };
-    submitAssign(payload).then(d => { if (d.ok) location.reload(); else alert(d.error || 'Error'); });
+    submitAssign(payload).then(d => { if (d.ok) location.reload(); else appAlert(d.error || 'Error'); });
 }
 
 function doDelete(id) {
-    if (!confirm(L.confirmDelete)) return;
-    fetch(DELETE_TPL.replace('/booking/0/', '/booking/' + id + '/'), {
-        method: 'POST', headers: { 'X-CSRFToken': CSRF }
-    }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+    appConfirm(L.confirmDelete, { danger: true }).then(function (ok) {
+        if (!ok) return;
+        fetch(DELETE_TPL.replace('/booking/0/', '/booking/' + id + '/'), {
+            method: 'POST', headers: { 'X-CSRFToken': CSRF }
+        }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+    });
 }
 
 // ---- Reset planning: delete all bookings for the week ----
 const resetBtn = document.getElementById('resetBtn');
 if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-        if (!confirm({{ t('sched.confirm_reset')|tojson }})) return;
-        fetch(RESET_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-            body: JSON.stringify({ week: WEEK_KEY })
-        }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+        appConfirm({{ t('sched.confirm_reset')|tojson }}, { danger: true }).then(function (ok) {
+            if (!ok) return;
+            fetch(RESET_URL, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({ week: WEEK_KEY })
+            }).then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+        });
     });
 }
 

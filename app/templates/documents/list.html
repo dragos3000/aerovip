@@ -35,7 +35,7 @@
                 data-expiry="{{ doc.expiry_date.isoformat() }}" data-name="{{ doc.original_name }}"
                 title="{{ t('doc.edit') }}"><i class="bi bi-pencil"></i></button>
         <form method="POST" action="{{ url_for('documents.delete', doc_id=doc.id) }}" class="d-inline"
-              onsubmit="return confirm('{{ t('doc.delete_confirm') }}');">
+              data-confirm="{{ t('doc.delete_confirm') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-danger" title="{{ t('form.delete') }}"><i class="bi bi-trash"></i></button>
         </form>

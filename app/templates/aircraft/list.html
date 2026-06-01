@@ -49,7 +49,7 @@
                         </a>
                         {% if current_user.role == 'admin' %}
                         <form method="POST" action="{{ url_for('aircraft.delete', aircraft_id=ac.id) }}" class="d-inline"
-                              onsubmit="return confirm('{{ t('misc.confirm_delete') }}')">
+                              data-confirm="{{ t('misc.confirm_delete') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                         </form>
