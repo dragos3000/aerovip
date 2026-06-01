@@ -191,3 +191,42 @@ def _finish(c):
         'instructor_id': c['instructor_id'], 'aircraft_id': c['aircraft_id'],
         'hour_type': c['hour_type'],
     }
+
+
+def apply_breaks(flights, break_min, day_end_hour=24):
+    """Re-pack the proposed flights so each STUDENT gets at least `break_min` minutes
+    between their consecutive same-day flights, and no instructor or aircraft is
+    double-booked. Flights are shifted later (list-scheduling) — if pushing one flight
+    would overlap another on the same resource, that one is pushed too. Times become
+    minute-precise ('HH:MM'). Best-effort within the day (won't run past day_end_hour).
+
+    Returns the same flight dicts with adjusted start/end.
+    """
+    if not flights or break_min <= 0:
+        return flights
+
+    def to_min(s):
+        return int(s[:2]) * 60 + int(s[3:5])
+
+    def to_str(m):
+        m = min(m, day_end_hour * 60)
+        return f"{m // 60:02d}:{m % 60:02d}"
+
+    cap = day_end_hour * 60
+    instr_free, ac_free, stu_free = {}, {}, {}
+    # Earliest original start first, so flights keep their planned order while we delay.
+    for f in sorted(flights, key=lambda x: (x['date'], to_min(x['start']), to_min(x['end']))):
+        d = f['date']
+        dur = to_min(f['end']) - to_min(f['start'])
+        ik, ak, sk = (d, f['instructor_id']), (d, f['aircraft_id']), (d, f['student_id'])
+        est = max(to_min(f['start']), instr_free.get(ik, 0), ac_free.get(ak, 0))
+        if sk in stu_free:                      # break only AFTER the student's first flight that day
+            est = max(est, stu_free[sk] + break_min)
+        if est + dur > cap:                     # can't fit within the day — leave this flight as-is
+            instr_free[ik] = max(instr_free.get(ik, 0), to_min(f['end']))
+            ac_free[ak] = max(ac_free.get(ak, 0), to_min(f['end']))
+            stu_free[sk] = to_min(f['end'])
+            continue
+        f['start'], f['end'] = to_str(est), to_str(est + dur)
+        instr_free[ik] = ac_free[ak] = stu_free[sk] = est + dur
+    return flights

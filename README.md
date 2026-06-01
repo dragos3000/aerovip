@@ -25,6 +25,8 @@ fleet management, and live airfield/weather information. Installable as a PWA.
     read-only (grid locked, Save disabled) and the ◀ nav stops at the current week.
   - **Locked once planned** — once a student has bookings for a week, their
     availability for that week is locked (read-only) and can't be changed.
+- **Student schedule** shows a notice that the start time is the takeoff time (be at
+  the airfield 30 minutes before).
   - **Busy-hour heat** — each hour cell is discreetly tinted by how contended it is —
     the number of *other* students who have booked **or** marked availability there,
     shaded against instructor/aircraft capacity — nudging students toward freer hours
@@ -33,7 +35,10 @@ fleet management, and live airfield/weather information. Installable as a PWA.
   many-students/few-resources matching fairly (everyone's first hours weighted
   highest), with toggles to keep-vs-rebuild, distribute over planes, distribute over
   the week, and split per-student hours. Honours **exact fractional requests** (a
-  3.5h request is scheduled as 3.5h, not rounded). Preview → apply.
+  3.5h request is scheduled as 3.5h, not rounded). A configurable **break between a
+  student's flights** (minutes, default 30) is inserted by a re-pack pass that shifts
+  later flights — cascading to any that would then overlap on the same plane/instructor
+  — so nothing double-books. Preview → apply.
 - **Aircraft-centric planning board** — one grid per aircraft showing every
   student's availability at once (overlaps in red), drag-to-reschedule, instructor
   double-booking guard, and a per-student requested-hours cap (the assign modal

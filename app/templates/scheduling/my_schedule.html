@@ -3,6 +3,12 @@
 {% block page_title %}{{ t('sched.my_schedule') }}{% endblock %}
 
 {% block content %}
+{% if current_user.role == 'student' %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+    <span><strong>{{ t('sched.takeoff_notice_1') }}</strong> {{ t('sched.takeoff_notice_2') }}</span>
+</div>
+{% endif %}
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-calendar2-check me-2"></i>{{ t('sched.upcoming_flights') }}</span>

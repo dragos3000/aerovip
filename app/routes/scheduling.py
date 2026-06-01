@@ -513,6 +513,10 @@ def auto_schedule():
     clear_existing = bool(data.get('clear_existing'))
     distribute_planes = data.get('distribute_planes', True)
     distribute_week = data.get('distribute_week', True)
+    try:
+        break_minutes = max(0, min(180, int(data.get('break_minutes', 30))))
+    except (TypeError, ValueError):
+        break_minutes = 30
     # Students allowed to have their hours split (the rest prefer contiguous blocks).
     split_ids = {int(i) for i in (data.get('split_students') or []) if str(i).isdigit()}
 
@@ -565,6 +569,10 @@ def auto_schedule():
             if (f['date'], sh - 1) in avail and _hour_free(f, sh - 1, flights):
                 f['start'] = f"{sh - 1:02d}:{60 - mins:02d}"
                 break
+
+    # Insert a rest break between each student's consecutive flights (shifting later
+    # flights — and any that would then overlap on the same plane/instructor — later).
+    flights = scheduler.apply_breaks(flights, break_minutes, weekutils.GRID_END_HOUR)
 
     def _fhours(f):
         sh, sm = int(f['start'][:2]), int(f['start'][3:5])
