@@ -10,15 +10,26 @@ class LoginForm(FlaskForm):
     remember = BooleanField('Remember Me')
 
 
+_DOC_TYPE_CHOICES = [('licence', 'Licence'), ('medical', 'Medical licence'),
+                     ('id', 'ID'), ('rtf', 'RTF certificate')]
+
+
 class DocumentUploadForm(FlaskForm):
-    doc_type = SelectField('Document type', choices=[
-        ('licence', 'Licence'), ('medical', 'Medical licence'),
-        ('id', 'ID'), ('rtf', 'RTF certificate')], validators=[DataRequired()])
+    doc_type = SelectField('Document type', choices=_DOC_TYPE_CHOICES, validators=[DataRequired()])
+    serial = StringField('Serial', validators=[Optional(), Length(max=64)])
     expiry_date = DateField('Expiry date', validators=[DataRequired()])
     file = FileField('File', validators=[
         FileRequired(), FileAllowed(['pdf', 'jpg', 'jpeg', 'png'], 'PDF or image (jpg/png) only.')])
     student_id = SelectField('Student', coerce=int, validators=[Optional()],
                              validate_choice=False)  # shown to planners only; students upload for themselves
+
+
+class DocumentEditForm(FlaskForm):
+    doc_type = SelectField('Document type', choices=_DOC_TYPE_CHOICES, validators=[DataRequired()])
+    serial = StringField('Serial', validators=[Optional(), Length(max=64)])
+    expiry_date = DateField('Expiry date', validators=[DataRequired()])
+    file = FileField('Replace file (optional)', validators=[
+        Optional(), FileAllowed(['pdf', 'jpg', 'jpeg', 'png'], 'PDF or image (jpg/png) only.')])
 
 
 class ForgotPasswordForm(FlaskForm):
@@ -46,6 +57,7 @@ class UserEditForm(FlaskForm):
     phone = StringField('Phone', validators=[Optional(), Length(max=20)])
     role = SelectField('Role', choices=[('student', 'Student'), ('instructor', 'Instructor'), ('manager', 'Manager'), ('admin', 'Admin')])
     is_active = BooleanField('Active')
+    is_approved = BooleanField('Approved')
 
 
 class AircraftForm(FlaskForm):

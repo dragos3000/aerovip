@@ -105,7 +105,10 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_tz():
         from app import weekutils
-        mode = session.get('tz', 'lt')
+        from flask_login import current_user
+        # Only planners (admin/manager) get the UTC option; everyone else is LT-only.
+        is_planner = getattr(current_user, 'is_planner', False)
+        mode = session.get('tz', 'lt') if is_planner else 'lt'
 
         def disp(dt, fmt='%H:%M'):
             """Format a (local) booking datetime, converting to UTC when in UTC mode."""

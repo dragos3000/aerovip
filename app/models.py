@@ -48,6 +48,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))
     role = db.Column(db.String(20), nullable=False, default='student')  # student, instructor, manager, admin
     is_active = db.Column(db.Boolean, default=True)
+    is_approved = db.Column(db.Boolean, default=True)   # new sign-ups start False until an admin approves
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -283,6 +284,7 @@ class StudentDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     doc_type = db.Column(db.String(16), nullable=False)            # licence / medical / id / rtf
+    serial = db.Column(db.String(64))                             # document serial / number
     stored_name = db.Column(db.String(128), nullable=False)        # on-disk filename
     original_name = db.Column(db.String(256), nullable=False)      # for download
     expiry_date = db.Column(db.Date, nullable=False, index=True)

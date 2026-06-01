@@ -138,6 +138,14 @@ def availability():
         else:
             busy_level[key] = 'b1'
 
+    # Once the week is planned (this student already has bookings), their availability
+    # is locked — they can no longer change it for that week.
+    planned = Booking.query.filter(
+        Booking.student_id == current_user.id, Booking.status != 'cancelled',
+        Booking.start_time >= ws, Booking.start_time < we).first() is not None
+    readonly = is_past or planned
+    lock_reason = 'past' if is_past else ('planned' if planned else None)
+
     return render_template(
         'scheduling/availability.html',
         week=week,
@@ -152,6 +160,8 @@ def availability():
         disp_shift=disp_shift,
         busy_level=busy_level,
         is_past=is_past,
+        readonly=readonly,
+        lock_reason=lock_reason,
         can_go_prev=can_go_prev,
         upcoming_weeks=weekutils.upcoming_weeks(6),
     )
@@ -173,6 +183,14 @@ def save_availability():
     cur_y, cur_w = weekutils.current_iso()
     if (iso_year, iso_week) < (cur_y, cur_w):
         return jsonify({'ok': False, 'error': 'Cannot submit availability for a past week.'}), 400
+
+    # Once the week is planned (the student already has bookings), availability is locked.
+    days_all = weekutils.week_dates(iso_year, iso_week)
+    wk_start = datetime.combine(days_all[0], datetime.min.time())
+    wk_end = datetime.combine(days_all[6] + timedelta(days=1), datetime.min.time())
+    if Booking.query.filter(Booking.student_id == current_user.id, Booking.status != 'cancelled',
+                            Booking.start_time >= wk_start, Booking.start_time < wk_end).first():
+        return jsonify({'ok': False, 'error': _t('err.avail_locked')}), 400
 
     # Only the configured operating week days are accepted.
     valid_dates = {d.isoformat() for d in weekutils.open_week_dates(iso_year, iso_week)}

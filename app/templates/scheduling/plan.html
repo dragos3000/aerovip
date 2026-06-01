@@ -214,12 +214,12 @@
         </div>
         <div class="row g-2 mb-2">
             <div class="col">
-                <label class="form-label small mb-1">{{ t('form.start_time') }}</label>
-                <select id="mStart" class="form-select form-select-sm"></select>
+                <label class="form-label small mb-1">{{ t('form.start_time') }} <span class="text-muted">(LT)</span></label>
+                <input type="time" step="60" id="mStart" class="form-control form-control-sm">
             </div>
             <div class="col">
-                <label class="form-label small mb-1">{{ t('form.end_time') }}</label>
-                <select id="mEnd" class="form-select form-select-sm"></select>
+                <label class="form-label small mb-1">{{ t('form.end_time') }} <span class="text-muted">(LT)</span></label>
+                <input type="time" step="60" id="mEnd" class="form-control form-control-sm">
             </div>
         </div>
         <div class="alert alert-light border py-1 px-2 mb-2 avail-line" id="mAvail"></div>
@@ -290,6 +290,12 @@ const TZ_LABEL = {{ ('UTC' if tz_mode == 'utc' else 'LT')|tojson }};
 function fmtH(h) { return String(h).padStart(2, '0') + ':00'; }                          // local value
 function dispH(h) { return String((((h + DISP_SHIFT) % 24) + 24) % 24).padStart(2, '0'); } // shown hour
 function dispHourStr(h) { return dispH(h) + ':00'; }
+// Display a local "HH:MM" shifted to the board's tz (keeps minutes), e.g. 9:12.
+function dispHM(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    const dh = (((h + DISP_SHIFT) % 24) + 24) % 24;
+    return String(dh).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
 function ranges(hours) {
     if (!hours || !hours.length) return '';
     const s = [...hours].sort((a, b) => a - b);
@@ -367,6 +373,7 @@ function renderAircraft(ac) {
                 const color = conf ? '#dc3545' : (HOUR_COLORS[bk.hour_type] || '#0d6efd');
                 const label = isStart
                     ? `<div class="chip">${conf ? '<i class="bi bi-exclamation-triangle"></i> ' : ''}${bk.student}</div>`
+                      + `<div class="chip sub">${dispHM(bk.start)}–${dispHM(bk.end)}</div>`
                       + `<div class="chip sub">${bk.hour_type} · ${instrName[bk.instructor_id] || bk.instructor || ''}</div>`
                     : '';
                 html += `<td class="cell booked dcol dcol-${di} ${conf ? 'conflict' : ''}" draggable="true" style="background:${color}" data-date="${d.date}" data-hour="${h}" data-booking='${JSON.stringify(bk)}'>${label}</td>`;
@@ -521,18 +528,14 @@ paintAvailability();
 const modalEl = document.getElementById('assignModal');
 const modal = new bootstrap.Modal(modalEl);
 
-function timeOptions() {
-    let opts = '';
-    const list = HOURS.concat([HOURS[HOURS.length - 1] + 1]);   // e.g. 6..24
-    list.forEach((h, i) => {
-        const mins = (i === list.length - 1) ? ['00'] : ['00', '30'];  // last hour (24): only :00
-        mins.forEach(m => {
-            const v = String(h).padStart(2, '0') + ':' + m;   // local value submitted to server
-            const d = dispH(h) + ':' + m;                       // label shown to the user
-            opts += `<option value="${v}">${d}</option>`;
-        });
-    });
-    return opts;
+// Start/End are minute-precision <input type="time"> in local time (LT). Duration is
+// tracked so changing the start shifts the end by the same amount.
+let modalDurMin = 60;
+function fmtEnd(mins) {
+    // End may land at/after midnight; the server treats 24:00 and end<=start as next day.
+    if (mins === 1440) return '24:00';
+    if (mins > 1440) return fmtMin(mins - 1440);
+    return fmtMin(mins);
 }
 function fillSelect(el, items, valKey, labelFn) {
     el.innerHTML = items.map(i => `<option value="${i[valKey]}">${labelFn(i)}</option>`).join('');
@@ -560,8 +563,6 @@ function prepModal() {
     fillSelect(document.getElementById('mStudent'), STUDENTS, 'id', s => s.name);
     fillSelect(document.getElementById('mAircraft'), AIRCRAFT, 'id', a => a.registration + ' · ' + a.model);
     document.getElementById('mDate').innerHTML = DAYS.map(d => `<option value="${d.date}">${d.label}</option>`).join('');
-    document.getElementById('mStart').innerHTML = timeOptions();
-    document.getElementById('mEnd').innerHTML = timeOptions();
     fillSelect(document.getElementById('mInstructor'), INSTRUCTORS, 'id', i => i.name);
     document.getElementById('mMsg').textContent = '';
 }
@@ -613,25 +614,24 @@ function ownEditDur() {
     return bk ? (minutesOf(bk.end) - minutesOf(bk.start)) / 60 : 0;
 }
 
-// A student can't be scheduled for more hours than they requested: disable End-time
-// options that would push the flight past their remaining hours.
+// A student can't be scheduled for more hours than they requested: clamp the End
+// time so the flight never exceeds their remaining hours, and keep end > start.
 function limitEnd() {
+    const startEl = document.getElementById('mStart');
+    const endEl = document.getElementById('mEnd');
+    if (!startEl.value) return;
+    const startMin = minutesOf(startEl.value);
+    let endMin = startMin + modalDurMin;
     const sid = parseInt(document.getElementById('mStudent').value, 10);
     const stu = STUDENTS.find(s => s.id === sid);
-    const startSel = document.getElementById('mStart');
-    const endSel = document.getElementById('mEnd');
-    if (!stu) return;
-    const remaining = Math.max(0, (stu.requested_hours - stu.assigned_hours) + ownEditDur());
-    const startMin = minutesOf(startSel.value);
-    const maxEndMin = startMin + remaining * 60;
-    [...endSel.options].forEach(o => {
-        const m = minutesOf(o.value);
-        o.disabled = (m <= startMin) || (m > maxEndMin + 1e-6);
-    });
-    if (endSel.selectedOptions[0] && endSel.selectedOptions[0].disabled) {
-        const valid = [...endSel.options].filter(o => !o.disabled);
-        if (valid.length) endSel.value = valid[valid.length - 1].value;
+    if (stu) {
+        const remaining = Math.max(0, (stu.requested_hours - stu.assigned_hours) + ownEditDur());
+        const maxEndMin = startMin + Math.round(remaining * 60);
+        if (endMin > maxEndMin) endMin = maxEndMin;
     }
+    if (endMin <= startMin) endMin = startMin + 60;   // at least a token block
+    modalDurMin = endMin - startMin;
+    endEl.value = fmtEnd(endMin) === '24:00' ? '00:00' : fmtMin(endMin % 1440);
 }
 
 function openAssign(aircraftId, date, hour) {
@@ -648,6 +648,7 @@ function openAssign(aircraftId, date, hour) {
     document.getElementById('mDate').value = date;
     document.getElementById('mStart').value = fmtH(hour);
     document.getElementById('mEnd').value = fmtH(hour + 1);
+    modalDurMin = 60;
     document.getElementById('mHourType').value = defaultTypeFor(parseInt(document.getElementById('mStudent').value, 10));
     document.getElementById('mNotes').value = '';
     document.getElementById('mDelete').classList.add('d-none');
@@ -667,6 +668,9 @@ function openEdit(bk) {
     document.getElementById('mDate').value = bk.date;
     document.getElementById('mStart').value = bk.start;
     document.getElementById('mEnd').value = bk.end;
+    let dur = minutesOf(bk.end) - minutesOf(bk.start);
+    if (dur <= 0) dur += 1440;   // booking that ends at/after midnight
+    modalDurMin = dur;
     document.getElementById('mHourType').value = bk.hour_type;
     document.getElementById('mNotes').value = bk.notes;
     refreshInstructors();
@@ -674,8 +678,6 @@ function openEdit(bk) {
     const del = document.getElementById('mDelete');
     del.classList.remove('d-none');
     del.onclick = () => doDelete(bk.id);
-    limitEnd();
-    document.getElementById('mEnd').value = bk.end;   // keep the saved end when editing
     updateAvail();
     modal.show();
 }
@@ -687,8 +689,17 @@ document.getElementById('mStudent').addEventListener('change', () => {
     updateAvail();
 });
 document.getElementById('mDate').addEventListener('change', () => { updateAvail(); refreshInstructors(); });
+// Changing the start shifts the end by the current duration (e.g. 9:00-10:00 -> 9:12-10:12).
 document.getElementById('mStart').addEventListener('change', () => { limitEnd(); refreshInstructors(); });
-document.getElementById('mEnd').addEventListener('change', refreshInstructors);
+// Editing the end sets a new duration (then clamp to the student's remaining hours).
+document.getElementById('mEnd').addEventListener('change', () => {
+    const s = minutesOf(document.getElementById('mStart').value);
+    const e = minutesOf(document.getElementById('mEnd').value);
+    let d = e - s; if (d <= 0) d += 1440;
+    modalDurMin = d;
+    limitEnd();
+    refreshInstructors();
+});
 
 function submitAssign(payload, warnEl) {
     return fetch(ASSIGN_URL, {
@@ -699,13 +710,14 @@ function submitAssign(payload, warnEl) {
 }
 
 document.getElementById('mSave').addEventListener('click', () => {
+    const startVal = document.getElementById('mStart').value;
     const payload = {
         student_id: document.getElementById('mStudent').value,
         booking_id: document.getElementById('mBookingId').value || null,
         aircraft_id: document.getElementById('mAircraft').value,
         date: document.getElementById('mDate').value,
-        start: document.getElementById('mStart').value,
-        end: document.getElementById('mEnd').value,
+        start: startVal,                                              // local HH:MM
+        end: fmtEnd(minutesOf(startVal) + modalDurMin),              // shifted by duration; 24:00/next-day safe
         hour_type: document.getElementById('mHourType').value,
         instructor_id: document.getElementById('mInstructor').value,
         notes: document.getElementById('mNotes').value,
@@ -715,7 +727,7 @@ document.getElementById('mSave').addEventListener('click', () => {
     const stuId = parseInt(payload.student_id, 10);
     const stu = STUDENTS.find(s => s.id === stuId);
     if (stu) {
-        const dur = (minutesOf(payload.end) - minutesOf(payload.start)) / 60;
+        const dur = modalDurMin / 60;
         const remaining = Math.max(0, (stu.requested_hours - stu.assigned_hours) + ownEditDur());
         if (dur > remaining + 1e-6) {
             msg.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>'
@@ -778,9 +790,9 @@ if (toggleAvail) {
         if (wrap) wrap.style.display = 'none';
         board.classList.remove('hide-avail');
     } else {
-        // after planning, hide availability by default for a clean schedule; toggle to verify
-        toggleAvail.checked = false;
-        board.classList.add('hide-avail');
+        // availability is shown by default (toggle on); flip off for a clean schedule view
+        toggleAvail.checked = true;
+        board.classList.remove('hide-avail');
     }
     toggleAvail.addEventListener('change', () => {
         board.classList.toggle('hide-avail', !toggleAvail.checked);

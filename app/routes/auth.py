@@ -25,6 +25,9 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data.lower()).first()
         if user and user.check_password(form.password.data):
+            if not user.is_approved:
+                flash(get_translation('auth.pending_approval', session.get('lang', 'ro')), 'warning')
+                return render_template('auth/login.html', form=form)
             if not user.is_active:
                 flash('Your account has been deactivated. Contact an administrator.', 'danger')
                 return render_template('auth/login.html', form=form)
@@ -53,11 +56,18 @@ def register():
             last_name=form.last_name.data,
             phone=form.phone.data,
             role='student',
+            is_approved=False,   # pending until an admin approves
         )
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
-        flash('Registration successful! You can now log in.', 'success')
+        # Acknowledge the sign-up by email (best-effort; needs SMTP configured).
+        lang = session.get('lang', 'ro')
+        from app.email import send_email_async
+        html = render_template('email/account_pending.html', user=user, lang=lang)
+        send_email_async(user.email, get_translation('email.pending_subject', lang), html,
+                         text=get_translation('email.pending_body', lang))
+        flash(get_translation('auth.register_pending', lang), 'info')
         return redirect(url_for('auth.login'))
 
     return render_template('auth/register.html', form=form)

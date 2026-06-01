@@ -38,8 +38,19 @@ PGPASSWORD="$DBPASS" pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" "$DBNAME" | 
 mv "$tmp" "$out"
 echo "$(date '+%F %T') backup OK -> $out ($(du -h "$out" | cut -f1))"
 
-# Rotation: keep the newest $KEEP, remove the rest.
-ls -1t "$BACKUP_DIR"/aerovip-*.sql.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | while read -r old; do
-    rm -f -- "$old"
-    echo "$(date '+%F %T') pruned old backup -> $old"
+# Also archive uploaded files (student documents) — pg_dump does NOT include these,
+# so the DB dump alone can't restore a deleted/lost upload.
+UPLOADS_DIR="$APP_DIR/instance/uploads"
+if [ -d "$UPLOADS_DIR" ]; then
+    uout="$BACKUP_DIR/aerovip-uploads-${ts}.tar.gz"
+    tar -czf "${uout}.partial" -C "$APP_DIR/instance" uploads && mv "${uout}.partial" "$uout"
+    echo "$(date '+%F %T') uploads backup OK -> $uout ($(du -h "$uout" | cut -f1))"
+fi
+
+# Rotation: keep the newest $KEEP of each kind, remove the rest.
+for pattern in "aerovip-*.sql.gz" "aerovip-uploads-*.tar.gz"; do
+    ls -1t "$BACKUP_DIR"/$pattern 2>/dev/null | tail -n +"$((KEEP + 1))" | while read -r old; do
+        rm -f -- "$old"
+        echo "$(date '+%F %T') pruned old backup -> $old"
+    done
 done

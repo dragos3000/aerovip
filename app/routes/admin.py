@@ -49,17 +49,49 @@ def edit_user(user_id):
 
     form = UserEditForm(obj=user)
     if form.validate_on_submit():
+        was_approved = user.is_approved
         user.email = form.email.data.lower()
         user.first_name = form.first_name.data
         user.last_name = form.last_name.data
         user.phone = form.phone.data
         user.role = form.role.data
         user.is_active = form.is_active.data
+        user.is_approved = form.is_approved.data
         db.session.commit()
+        if user.is_approved and not was_approved:
+            _send_approval_email(user)
         flash('User updated successfully.', 'success')
         return redirect(url_for('admin.users'))
 
     return render_template('admin/edit_user.html', form=form, user=user)
+
+
+@bp.route('/users/<int:user_id>/approve', methods=['POST'])
+@login_required
+@admin_required
+def approve_user(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('admin.users'))
+    if not user.is_approved:
+        user.is_approved = True
+        db.session.commit()
+        _send_approval_email(user)
+        flash('Account approved.', 'success')
+    return redirect(url_for('admin.users'))
+
+
+def _send_approval_email(user):
+    """Email a user that their account has been approved (best-effort)."""
+    from flask import session
+    from app.email import send_email_async
+    from app.translations import get_translation
+    lang = session.get('lang', 'ro')
+    login_link = url_for('auth.login', _external=True)
+    html = render_template('email/account_approved.html', user=user, link=login_link, lang=lang)
+    send_email_async(user.email, get_translation('email.approved_subject', lang), html,
+                     text=get_translation('email.approved_body', lang) + '\n\n' + login_link)
 
 
 @bp.route('/users/<int:user_id>/toggle', methods=['POST'])

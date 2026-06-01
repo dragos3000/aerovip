@@ -13,7 +13,7 @@ from flask_login import login_required, current_user
 
 from app import db
 from app.models import User, StudentDocument, DOC_TYPES, Setting
-from app.forms import DocumentUploadForm
+from app.forms import DocumentUploadForm, DocumentEditForm
 from app.translations import get_translation
 
 bp = Blueprint('documents', __name__, url_prefix='/documents')
@@ -109,6 +109,7 @@ def upload():
     doc = StudentDocument(
         student_id=target_id,
         doc_type=form.doc_type.data if form.doc_type.data in DOC_TYPES else 'licence',
+        serial=(form.serial.data or '').strip() or None,
         stored_name=stored,
         original_name=f.filename[:256],
         expiry_date=form.expiry_date.data,
@@ -118,6 +119,53 @@ def upload():
     db.session.commit()
     flash(_t('doc.uploaded'), 'success')
     return redirect(url_for('documents.index'))
+
+
+@bp.route('/<int:doc_id>/edit', methods=['POST'])
+@login_required
+def edit(doc_id):
+    doc = db.session.get(StudentDocument, doc_id)
+    if not doc or not _can_access(doc):
+        abort(404)
+    form = DocumentEditForm()
+    form.doc_type.choices = [(k, _t('doc.type_' + k)) for k in DOC_TYPES]
+    if not form.validate_on_submit():
+        flash(_t('doc.upload_failed'), 'danger')
+        return redirect(url_for('documents.index'))
+
+    doc.doc_type = form.doc_type.data if form.doc_type.data in DOC_TYPES else doc.doc_type
+    doc.serial = (form.serial.data or '').strip() or None
+    doc.expiry_date = form.expiry_date.data
+    # Optional file replacement.
+    if form.file.data:
+        f = form.file.data
+        ext = _ext(f.filename)
+        if ext not in ALLOWED_EXT:
+            flash(_t('doc.bad_type'), 'danger')
+            return redirect(url_for('documents.index'))
+        old = doc.stored_name
+        stored = f'{uuid.uuid4().hex}.{ext}'
+        f.save(os.path.join(_docs_dir(), stored))
+        doc.stored_name = stored
+        doc.original_name = f.filename[:256]
+        try:
+            os.remove(os.path.join(_docs_dir(), old))
+        except OSError:
+            pass
+    db.session.commit()
+    flash(_t('doc.saved'), 'success')
+    return redirect(url_for('documents.index'))
+
+
+@bp.route('/<int:doc_id>/view')
+@login_required
+def view(doc_id):
+    """Serve the file inline (for in-modal preview)."""
+    doc = db.session.get(StudentDocument, doc_id)
+    if not doc or not _can_access(doc):
+        abort(404)
+    return send_from_directory(_docs_dir(), doc.stored_name,
+                               as_attachment=False, download_name=doc.original_name)
 
 
 @bp.route('/<int:doc_id>/download')

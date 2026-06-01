@@ -62,8 +62,8 @@
                 </div>
             </div>
             <div class="card-body">
-                {% if is_past %}
-                <div class="alert alert-secondary small py-2 mb-2"><i class="bi bi-lock me-1"></i>{{ t('sched.past_readonly') }}</div>
+                {% if readonly %}
+                <div class="alert alert-secondary small py-2 mb-2"><i class="bi bi-lock me-1"></i>{{ t('sched.past_readonly') if lock_reason == 'past' else t('sched.avail_locked') }}</div>
                 {% endif %}
                 <p class="text-muted small mb-2">
                     <i class="bi bi-hand-index me-1"></i>{{ t('sched.drag_hint') }}
@@ -115,7 +115,7 @@
                 <textarea id="notes" class="form-control" rows="3" placeholder="{{ t('sched.notes_ph') }}">{{ notes }}</textarea>
             </div>
         </div>
-        <button type="button" class="btn btn-av-primary w-100" id="saveBtn"{% if is_past %} disabled{% endif %}>
+        <button type="button" class="btn btn-av-primary w-100" id="saveBtn"{% if readonly %} disabled{% endif %}>
             <i class="bi bi-check2-circle me-1"></i>{{ t('sched.save_availability') }}
         </button>
         <div id="saveMsg" class="small mt-2"></div>
@@ -137,7 +137,7 @@
 {% block extra_js %}
 <script>
 const WEEK_KEY = {{ week.key|tojson }};
-const READONLY = {{ is_past|tojson }};   // past weeks: view only, no painting/saving
+const READONLY = {{ readonly|tojson }};   // past or already-planned weeks: view only, no painting/saving
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const existingSlots = new Set({{ existing_slots|tojson }});
 const existingRequests = {{ existing_requests|tojson }};

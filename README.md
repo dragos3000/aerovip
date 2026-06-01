@@ -23,6 +23,8 @@ fleet management, and live airfield/weather information. Installable as a PWA.
     days are removed from both the availability grid and the planning board.
   - **No past weeks** — the current week is the earliest submittable; past weeks are
     read-only (grid locked, Save disabled) and the ◀ nav stops at the current week.
+  - **Locked once planned** — once a student has bookings for a week, their
+    availability for that week is locked (read-only) and can't be changed.
   - **Busy-hour heat** — each hour cell is discreetly tinted by how contended it is —
     the number of *other* students who have booked **or** marked availability there,
     shaded against instructor/aircraft capacity — nudging students toward freer hours
@@ -35,18 +37,22 @@ fleet management, and live airfield/weather information. Installable as a PWA.
 - **Aircraft-centric planning board** — one grid per aircraft showing every
   student's availability at once (overlaps in red), drag-to-reschedule, instructor
   double-booking guard, and a per-student requested-hours cap (the assign modal
-  disables over-limit end times and blocks save). Mobile shows one day at a time via
-  a day selector.
+  disables over-limit end times and blocks save). **Minute-precision times**: set a
+  start to the minute and the end shifts to keep the same duration (9:00–10:00 →
+  9:12–10:12). "Show availability" is on by default. Mobile shows one day at a time.
 - **EASA pilot logbook** — instructors log flown hours per student/day (total
   auto-calculated from times, shown as H:MM); PPL-A flights get the EASA exercises
   multi-select; filter by student/period; sortable, responsive DataTables.
 - **Student documents** — Licence, Medical, ID and RTF certificate uploads (PDF/image)
-  with expiry dates. Students manage their own; admins/managers manage any student's
-  (download is owner-or-planner only). Upload history is kept; the dashboard shows
-  **expiry alerts** (expired / expiring) with a configurable warning window.
-- **Password reset by email** — a "Forgot password?" link emails a time-limited
-  (1 hour) reset link. SMTP is configured in the admin Settings UI; no user
-  enumeration (the same response whether or not the address exists).
+  with a **serial** and **expiry date**. Students manage their own; admins/managers
+  manage any student's. Documents are **viewed in a modal** (PDF/image preview) and
+  **editable** (type/serial/expiry, replace file); download/view is owner-or-planner
+  only. Upload history is kept; the dashboard shows **expiry alerts** (expired /
+  expiring) with a configurable warning window.
+- **Accounts** — registration is **admin-approved**: new sign-ups are pending (can't
+  log in) and the student is emailed on sign-up and again when approved. Password
+  reset is by email — a "Forgot password?" link sends a time-limited (1 hour) reset
+  link. SMTP is configured in the admin Settings UI; no user enumeration.
 - **Roles**: Student, Instructor, **Manager**, Admin. Planners (admin + manager)
   build the schedule; instructors log flights and see their assignments. Managers
   can also reach **Settings** (operating hours/days, ICAO, airfield info) — only the
@@ -59,9 +65,9 @@ fleet management, and live airfield/weather information. Installable as a PWA.
 - **Resilient weather/NOTAM cache**: a transient upstream failure never wipes good
   data — the last successful METAR/TAF/NOTAMs keep showing (flagged stale) instead
   of an error.
-- **LT / UTC toggle** across the whole app, with a **UTC label shown next to the
-  times** (planning board, availability grid, booking lists, sun/night times) so
-  it's always clear which zone is displayed.
+- **LT / UTC toggle** for **managers/admins only** (students and instructors always
+  see local time, LT); with a **UTC label shown next to the times** (planning board,
+  availability grid, booking lists, sun/night times) so the zone is always clear.
 - **Bilingual**: Romanian / English.
 - **Footer**: shows `© by Start-Line <year>` and a version number (`v<n>`) derived
   from the git commit count, so it bumps on every commit (refreshed on deploy/restart).
@@ -150,10 +156,11 @@ sudo bash deploy.sh
 
 ## Database backups
 
-`scripts/backup_db.sh` writes a timestamped gzipped `pg_dump` to
-`/home/ubuntu01/backups/aerovip/`, keeping the newest 30 (atomic write + rotation;
-credentials read from `.env`). It's scheduled in the user crontab daily at 03:00.
-Restore instructions are in `scripts/README-backup.md`.
+`scripts/backup_db.sh` writes a timestamped gzipped `pg_dump` **and** a tarball of
+`instance/uploads/` (student documents) to `/home/ubuntu01/backups/aerovip/`, keeping
+the newest 30 of each (atomic write + rotation; credentials read from `.env`). It's
+scheduled in the user crontab daily at 03:00. Restore instructions are in
+`scripts/README-backup.md`.
 
 ```bash
 scripts/backup_db.sh                  # run a backup now

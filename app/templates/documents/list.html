@@ -16,17 +16,38 @@
 {% macro doc_row(doc) %}
 <tr>
     <td>{{ t('doc.type_' + doc.doc_type) }}</td>
-    <td><a href="{{ url_for('documents.download', doc_id=doc.id) }}"><i class="bi bi-paperclip me-1"></i>{{ doc.original_name }}</a></td>
+    <td>{{ doc.serial or '—' }}</td>
     <td>{{ doc.expiry_date.strftime('%d %b %Y') }}</td>
     <td>{{ status_badge(doc) }}</td>
-    <td class="text-end">
+    <td class="text-end text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-primary js-view"
+                data-url="{{ url_for('documents.view', doc_id=doc.id) }}"
+                data-dl="{{ url_for('documents.download', doc_id=doc.id) }}"
+                data-name="{{ doc.original_name }}"
+                data-ext="{{ (doc.original_name.rsplit('.',1)[-1]|lower) if '.' in doc.original_name else '' }}"
+                title="{{ t('doc.view') }}"><i class="bi bi-eye"></i></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary js-edit"
+                data-action="{{ url_for('documents.edit', doc_id=doc.id) }}"
+                data-type="{{ doc.doc_type }}" data-serial="{{ doc.serial or '' }}"
+                data-expiry="{{ doc.expiry_date.isoformat() }}" data-name="{{ doc.original_name }}"
+                title="{{ t('doc.edit') }}"><i class="bi bi-pencil"></i></button>
         <form method="POST" action="{{ url_for('documents.delete', doc_id=doc.id) }}" class="d-inline"
               onsubmit="return confirm('{{ t('doc.delete_confirm') }}');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="{{ t('form.delete') }}"><i class="bi bi-trash"></i></button>
         </form>
     </td>
 </tr>
+{% endmacro %}
+
+{% macro doc_table(docs) %}
+<table class="table table-sm mb-0 align-middle">
+    <thead><tr>
+        <th>{{ t('doc.type') }}</th><th>{{ t('doc.serial') }}</th>
+        <th>{{ t('doc.expiry_date') }}</th><th>{{ t('doc.status') }}</th><th></th>
+    </tr></thead>
+    <tbody>{% for doc in docs %}{{ doc_row(doc) }}{% endfor %}</tbody>
+</table>
 {% endmacro %}
 
 {% block content %}
@@ -46,6 +67,10 @@
                     <div class="mb-2">
                         <label class="form-label fw-semibold">{{ t('doc.type') }}</label>
                         {{ form.doc_type(class="form-select") }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">{{ t('doc.serial') }}</label>
+                        {{ form.serial(class="form-control") }}
                     </div>
                     <div class="mb-2">
                         <label class="form-label fw-semibold">{{ t('doc.expiry_date') }}</label>
@@ -70,29 +95,100 @@
             {% for g in groups %}
             <div class="card mb-3">
                 <div class="card-header py-2"><i class="bi bi-person me-2"></i>{{ g.student.full_name if g.student else '—' }}</div>
-                <div class="card-body p-0">
-                    <table class="table table-sm mb-0 align-middle">
-                        <thead><tr><th>{{ t('doc.type') }}</th><th>{{ t('doc.file') }}</th><th>{{ t('doc.expiry_date') }}</th><th>{{ t('doc.status') }}</th><th></th></tr></thead>
-                        <tbody>{% for doc in g.docs %}{{ doc_row(doc) }}{% endfor %}</tbody>
-                    </table>
-                </div>
+                <div class="card-body p-0">{{ doc_table(g.docs) }}</div>
             </div>
             {% endfor %}
         {% else %}
             <div class="card">
                 <div class="card-header py-2"><i class="bi bi-folder me-2"></i>{{ t('doc.my_documents') }}</div>
                 <div class="card-body p-0">
-                    {% if my_docs %}
-                    <table class="table table-sm mb-0 align-middle">
-                        <thead><tr><th>{{ t('doc.type') }}</th><th>{{ t('doc.file') }}</th><th>{{ t('doc.expiry_date') }}</th><th>{{ t('doc.status') }}</th><th></th></tr></thead>
-                        <tbody>{% for doc in my_docs %}{{ doc_row(doc) }}{% endfor %}</tbody>
-                    </table>
-                    {% else %}
-                    <div class="p-3 text-muted">{{ t('doc.none') }}</div>
-                    {% endif %}
+                    {% if my_docs %}{{ doc_table(my_docs) }}{% else %}<div class="p-3 text-muted">{{ t('doc.none') }}</div>{% endif %}
                 </div>
             </div>
         {% endif %}
     </div>
 </div>
+
+<!-- View modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewModalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" id="viewModalBody" style="min-height:65vh"></div>
+      <div class="modal-footer">
+        <a id="viewModalDownload" class="btn btn-sm btn-outline-primary" href="#"><i class="bi bi-download me-1"></i>{{ t('doc.download') }}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" id="editForm" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>{{ t('doc.edit') }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label fw-semibold">{{ t('doc.type') }}</label>
+            <select class="form-select" name="doc_type">
+              {% for k in doc_types %}<option value="{{ k }}">{{ t('doc.type_' + k) }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">{{ t('doc.serial') }}</label>
+            <input type="text" class="form-control" name="serial">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">{{ t('doc.expiry_date') }}</label>
+            <input type="date" class="form-control" name="expiry_date" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">{{ t('doc.replace_file') }}</label>
+            <input type="file" class="form-control" name="file">
+            <div class="form-text" id="editCurrentFile"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t('form.cancel') }}</button>
+          <button type="submit" class="btn btn-av-primary btn-sm">{{ t('form.save_changes') }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const IMG_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+document.querySelectorAll('.js-view').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('viewModalTitle').textContent = b.dataset.name;
+    const body = document.getElementById('viewModalBody');
+    if (IMG_EXT.includes(b.dataset.ext)) {
+        body.innerHTML = '<img src="' + b.dataset.url + '" class="img-fluid d-block mx-auto">';
+    } else {
+        body.innerHTML = '<iframe src="' + b.dataset.url + '" style="width:100%;height:70vh;border:0"></iframe>';
+    }
+    document.getElementById('viewModalDownload').href = b.dataset.dl;
+    new bootstrap.Modal('#viewModal').show();
+}));
+document.querySelectorAll('.js-edit').forEach(b => b.addEventListener('click', () => {
+    const f = document.getElementById('editForm');
+    f.action = b.dataset.action;
+    f.querySelector('[name=doc_type]').value = b.dataset.type;
+    f.querySelector('[name=serial]').value = b.dataset.serial;
+    f.querySelector('[name=expiry_date]').value = b.dataset.expiry;
+    f.querySelector('[name=file]').value = '';
+    document.getElementById('editCurrentFile').textContent = b.dataset.name;
+    new bootstrap.Modal('#editModal').show();
+}));
+</script>
 {% endblock %}

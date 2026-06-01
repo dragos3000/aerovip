@@ -127,11 +127,13 @@
 
         <div class="mt-auto">
             <div class="sidebar-controls px-3 pt-2 pb-2">
-                <!-- Time zone (iOS-style toggle) -->
+                <!-- Time zone (iOS-style toggle) — planners only; others are LT-only -->
+                {% if current_user.is_planner %}
                 <div class="seg-toggle mb-2">
                     <a href="{{ url_for('main.set_tz', mode='lt') }}" class="{{ 'active' if tz_mode == 'lt' }}">LT</a>
                     <a href="{{ url_for('main.set_tz', mode='utc') }}" class="{{ 'active' if tz_mode == 'utc' }}">UTC</a>
                 </div>
+                {% endif %}
                 <!-- Language (iOS-style toggle) -->
                 <div class="seg-toggle mb-2">
                     <a href="{{ url_for('main.set_language', lang='ro') }}" class="{{ 'active' if current_lang == 'ro' }}">RO</a>
@@ -181,7 +183,7 @@
     {% endif %}
 
     <footer class="app-footer text-center text-muted small py-3">
-        &copy; {{ t('footer.by') }} Start-Line {{ current_year }}
+        &copy; {{ current_year }} {{ t('footer.by') }} StartLine
         <span class="mx-1">·</span>
         <span title="build">v{{ app_version }}</span>
     </footer>

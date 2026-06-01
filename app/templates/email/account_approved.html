@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1c2733;">
+  <div style="max-width:520px;margin:24px auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e3e6ea;">
+    <div style="background:#0a1628;padding:18px 24px;color:#fff;font-weight:bold;font-size:18px;">Aero Vip Academy</div>
+    <div style="padding:24px;">
+      <p style="margin:0 0 12px;">{{ t('email.reset_hi') }} {{ user.first_name }},</p>
+      <p style="margin:0 0 16px;">{{ t('email.approved_body') }}</p>
+      <p style="text-align:center;margin:24px 0;">
+        <a href="{{ link }}" style="background:#0d6efd;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;display:inline-block;font-weight:bold;">{{ t('auth.sign_in') }}</a>
+      </p>
+      <p style="margin:16px 0 0;word-break:break-all;font-size:12px;color:#8a97a3;">{{ link }}</p>
+    </div>
+  </div>
+</body>
+</html>

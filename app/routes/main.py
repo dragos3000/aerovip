@@ -28,7 +28,8 @@ def set_language(lang):
 
 @bp.route('/tz/<mode>')
 def set_tz(mode):
-    if mode in ('lt', 'utc'):
+    # Only planners (admin/manager) may switch to UTC; everyone else stays LT.
+    if mode in ('lt', 'utc') and current_user.is_authenticated and current_user.is_planner:
         session['tz'] = mode
     return redirect(request.referrer or url_for('main.dashboard'))
 

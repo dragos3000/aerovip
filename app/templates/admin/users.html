@@ -28,7 +28,9 @@
                     <td>{{ u.phone or '-' }}</td>
                     <td><span class="badge badge-{{ u.role }}">{{ t('role.' + u.role) }}</span></td>
                     <td>
-                        {% if u.is_active %}
+                        {% if not u.is_approved %}
+                        <span class="badge bg-warning text-dark">{{ t('status.pending') }}</span>
+                        {% elif u.is_active %}
                         <span class="badge bg-success">{{ t('status.active') }}</span>
                         {% else %}
                         <span class="badge bg-secondary">{{ t('status.inactive') }}</span>
@@ -36,6 +38,12 @@
                     </td>
                     <td>{{ u.created_at.strftime('%b %d, %Y') }}</td>
                     <td>
+                        {% if not u.is_approved %}
+                        <form method="POST" action="{{ url_for('admin.approve_user', user_id=u.id) }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-success" title="{{ t('admin.approve') }}"><i class="bi bi-check-lg"></i> {{ t('admin.approve') }}</button>
+                        </form>
+                        {% endif %}
                         <a href="{{ url_for('admin.edit_user', user_id=u.id) }}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-pencil"></i>
                         </a>

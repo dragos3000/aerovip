@@ -31,10 +31,16 @@
                             <label class="form-label fw-semibold">{{ t('table.role') }}</label>
                             {{ form.role(class="form-select") }}
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <div class="form-check">
                                 {{ form.is_active(class="form-check-input") }}
                                 <label class="form-check-label">{{ t('status.active') }}</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                {{ form.is_approved(class="form-check-input") }}
+                                <label class="form-check-label">{{ t('status.approved') }}</label>
                             </div>
                         </div>
                         <div class="col-12">
