@@ -76,7 +76,42 @@
                 {% endif %}
             </div>
             <div class="card-body">
-                {% if bookings %}
+                {% if flights_by_aircraft is not none %}
+                    {% if flights_by_aircraft %}
+                        {% for g in flights_by_aircraft %}
+                        <div class="mb-4 plane-group">
+                            <h6 class="mb-2"><i class="bi bi-airplane-engines me-1"></i><strong>{{ g.aircraft.registration if g.aircraft else '—' }}</strong>
+                                {% if g.aircraft %}<span class="text-muted small">· {{ g.aircraft.model }}</span>{% endif %}
+                                <span class="badge bg-secondary ms-1">{{ g.bookings|length }}</span>
+                            </h6>
+                            <table class="table table-hover table-sm upcoming-plane dt-responsive nowrap w-100">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{{ t('table.date') }}</th>
+                                        <th>{{ t('table.time') }}</th>
+                                        <th>{{ t('table.student') }}</th>
+                                        <th>{{ t('table.instructor') }}</th>
+                                        <th>{{ t('table.type') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for b in g.bookings %}
+                                    <tr>
+                                        <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%b %d, %Y') }}</td>
+                                        <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
+                                        <td>{{ b.student.full_name }}</td>
+                                        <td>{{ b.instructor.full_name }}</td>
+                                        <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <p class="text-center text-muted py-4 mb-0">{{ t('dash.no_upcoming') }}</p>
+                    {% endif %}
+                {% elif bookings %}
                 <table id="upcomingTable" class="table table-hover dt-responsive nowrap w-100">
                     <thead class="table-light">
                         <tr>
@@ -90,8 +125,8 @@
                     <tbody>
                         {% for b in bookings %}
                         <tr>
-                            <td>{{ disp(b.start_time, '%b %d, %Y') }}</td>
-                            <td>{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
+                            <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%b %d, %Y') }}</td>
+                            <td data-order="{{ b.start_time.isoformat() }}">{{ disp(b.start_time, '%H:%M') }} - {{ disp(b.end_time, '%H:%M') }}</td>
                             <td><strong>{{ b.aircraft.registration }}</strong></td>
                             <td>{% if current_user.role == 'instructor' %}{{ b.student.full_name }}{% else %}{{ b.instructor.full_name }}{% endif %}</td>
                             <td><span class="badge bg-primary">{{ b.hour_type }}</span></td>
@@ -223,6 +258,19 @@ $(function () {
     if ($('#upcomingTable').length) {
         $('#upcomingTable').DataTable({ responsive: true, paging: false, searching: false, info: false, order: [] });
     }
+    // Per-aircraft upcoming-flights tables (admin): each filterable + sortable.
+    $('.upcoming-plane').each(function () {
+        $(this).DataTable({
+            responsive: true,
+            searching: true,
+            ordering: true,
+            info: false,
+            paging: $(this).find('tbody tr').length > 10,
+            pageLength: 10,
+            order: [[0, 'asc']],
+            language: { search: '', searchPlaceholder: {{ t('table.filter')|tojson }} },
+        });
+    });
 });
 
 // Time-zone display follows the navbar LT/UTC switch

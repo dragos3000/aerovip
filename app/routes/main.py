@@ -99,7 +99,19 @@ def dashboard():
         my_bookings = Booking.query.filter(
             Booking.status != 'cancelled',
             Booking.start_time >= today,
-        ).order_by(Booking.start_time).limit(20).all()
+        ).order_by(Booking.start_time).limit(200).all()
+
+    # Planners see the upcoming flights split into one table per aircraft.
+    flights_by_aircraft = None
+    if current_user.is_planner:
+        groups = {}
+        for b in my_bookings:
+            groups.setdefault(b.aircraft_id, []).append(b)
+        acs = {a.id: a for a in Aircraft.query.all()}
+        flights_by_aircraft = sorted(
+            ({'aircraft': acs.get(aid), 'bookings': bks} for aid, bks in groups.items()),
+            key=lambda g: g['aircraft'].registration if g['aircraft'] else '~',
+        )
 
     todays_flights = Booking.query.filter(
         Booking.start_time >= today,
@@ -115,6 +127,7 @@ def dashboard():
 
     return render_template('dashboard.html',
                            bookings=my_bookings,
+                           flights_by_aircraft=flights_by_aircraft,
                            todays_flights=todays_flights,
                            total_students=total_students,
                            total_aircraft=total_aircraft,
