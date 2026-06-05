@@ -3,7 +3,7 @@
  * relative to the worker's own location. Navigations are ALWAYS network-first
  * (never stale HTML); only same-origin static assets are cached.
  */
-const CACHE = 'aerovip-v4';
+const CACHE = 'aerovip-v5';
 const SCOPE_URL = new URL('./', self.location);                 // e.g. https://host/aerovip/
 const STATIC_PREFIX = new URL('static/', SCOPE_URL).pathname;   // e.g. /aerovip/static/
 const OFFLINE = new URL('static/offline.html', SCOPE_URL).href;
@@ -64,9 +64,24 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Resolve a server-sent notification URL to a real, prefix-correct href.
+// The app is served under /aerovip/, but some push payloads carry root-relative
+// paths without the prefix (e.g. "/documents/"). Graft the scope on so they
+// don't 404, while leaving URLs already under the scope (or off-origin) intact.
+function resolveTarget(raw) {
+  if (!raw) return SCOPE_URL.href;
+  let u;
+  try { u = new URL(raw, SCOPE_URL); } catch (e) { return SCOPE_URL.href; }
+  const scope = SCOPE_URL.pathname;                              // e.g. "/aerovip/"
+  if (u.origin === SCOPE_URL.origin && !u.pathname.startsWith(scope)) {
+    u = new URL(u.pathname.replace(/^\/+/, '') + u.search + u.hash, SCOPE_URL);
+  }
+  return u.href;
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || SCOPE_URL.href;
+  const target = resolveTarget(event.notification.data && event.notification.data.url);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const c of clientList) {
